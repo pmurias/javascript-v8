@@ -6,15 +6,15 @@ use ExtUtils::MakeMaker;
 my $CC = 'g++';
 
 WriteMakefile(
-    NAME              => 'Object::WithIntAndString',
-    VERSION_FROM      => 'lib/Object/WithIntAndString.pm', # finds $VERSION
+    NAME              => 'JavaScript::V8',
+    VERSION_FROM      => 'lib/JavaScript/V8.pm', # finds $VERSION
     PREREQ_PM         => {
       'ExtUtils::XSpp' => '0.01',
     }, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
-      (ABSTRACT_FROM  => 'lib/Object/WithIntAndString.pm', # retrieve abstract from module
-       AUTHOR         => 'Steffen Mueller <smueller@cpan.org>') : ()),
-    LIBS              => [''], # e.g., '-lm'
+      (ABSTRACT_FROM  => 'lib/JavaScript/V8.pm', # retrieve abstract from module
+       AUTHOR         => 'Pawel Murias <pawelmurias@gmail.org>') : ()),
+    LIBS              => ['-lv8'], # e.g., '-lm'
     DEFINE            => '', # e.g., '-DHAVE_SOMETHING'
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
     OBJECT            => '$(O_FILES)', # link all the C files too

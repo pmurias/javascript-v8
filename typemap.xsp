@@ -1,6 +1,6 @@
 
 // Map the type of our custom class
-%typemap{IntAndString*}{simple};
+%typemap{V8Context*}{simple};
 
 // Map simple types
 %typemap{const char*}{simple};
