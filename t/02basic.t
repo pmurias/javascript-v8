@@ -18,14 +18,15 @@ ok(!defined $context->eval('null'), 'null');
 my $called_foo = 0;
 sub foo {
    $called_foo = 1; 
+   'arg';
 }
 sub bar {
-    is $_[0],'arg';
+    is $_[0],'arg','passing arguments and return values';
 }
 $context->register_method_by_name('foo');
 $context->register_method_by_name('bar');
 $context->eval("foo()");
-$context->eval("bar('arg')");
 ok($called_foo);
+$context->eval("bar(foo())");
 
 done_testing;

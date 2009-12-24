@@ -28,6 +28,24 @@ static SV *_convert_v8value_to_sv(Handle<Value> value)
     }
 }
 static Handle<Value>
+_convert_sv_to_v8value(SV *sv)
+{
+    HandleScope scope;
+
+    if (0) ;
+    else if (SvIOK_UV(sv))
+        return Uint32::New(SvUV(sv));
+    else if (SvIOK(sv))
+        return Integer::New(SvIV(sv));
+    else if (SvNOK(sv))
+        return Number::New(SvNV(sv));
+    else if (SvPOK(sv))
+        return String::New(SvPV_nolen(sv));
+
+    return Undefined();
+}
+
+static Handle<Value>
 _perl_method_by_name(const Arguments &args)
 {
     dSP;
@@ -58,7 +76,7 @@ _perl_method_by_name(const Arguments &args)
     SPAGAIN;
 
     if (count >= 1) {
-        //result = _convert_sv_to_v8value(POPs);
+        result = _convert_sv_to_v8value(POPs);
     }
 
     PUTBACK;
