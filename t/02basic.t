@@ -15,5 +15,17 @@ is($context->eval("'Μπορώ να φάω σπασμένα γυαλιά χωρ�
 is($context->eval("1.34"), 1.34, 'numbers');
 ok(!defined $context->eval('undefined'), 'undefined');
 ok(!defined $context->eval('null'), 'null');
+my $called_foo = 0;
+sub foo {
+   $called_foo = 1; 
+}
+sub bar {
+    is $_[0],'arg';
+}
+$context->register_method_by_name('foo');
+$context->register_method_by_name('bar');
+$context->eval("foo()");
+$context->eval("bar('arg')");
+ok($called_foo);
 
 done_testing;

@@ -7,6 +7,7 @@
   ~V8Context();
 
   SV* eval(const char* code);
+  void register_method_by_name(const char* code);
 
 };
 
