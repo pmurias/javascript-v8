@@ -12,12 +12,12 @@ extern "C" {
 
 /* We need one MODULE... line to start the actual XS section of the file.
  * The XS++ preprocessor will output its own MODULE and PACKAGE lines */
-MODULE = Javascript::V8		PACKAGE = Javascript::V8
+MODULE = JavaScript::V8		PACKAGE = JavaScript::V8
 
 ## The include line executes xspp with the supplied typemap and the
 ## xsp interface code for our class.
 ## It will include the output of the xsubplusplus run.
 
-INCLUDE: xspp --typemap=typemap.xsp Javascript-V8-Context.xsp |
+INCLUDE: xspp --typemap=typemap.xsp JavaScript-V8-Context.xsp |
 
 
