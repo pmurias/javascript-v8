@@ -6,4 +6,5 @@
 %typemap{const char*}{simple};
 %typemap{int}{simple};
 %typemap{void}{simple};
+%typemap{SV*}{simple};
 
