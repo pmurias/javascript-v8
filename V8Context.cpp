@@ -46,60 +46,58 @@ _convert_sv_to_v8value(SV *sv)
 }
 
 static Handle<Value>
-_perl_method_by_name(const Arguments &args)
+_perl_method(const Arguments &args)
 {
     dSP;
     int count;
     Handle<Value> result = Undefined();
-    char ** arguments;
 
     ENTER;
     SAVETMPS;
-
-    String::Utf8Value method(args.Data()->ToString());
-    if (0) Perl_warn(aTHX_ "method called: %s", *method);
-
-    arguments = new char *[args.Length() + 1];
+    PUSHMARK(SP);
+  
     for (int i = 0; i < args.Length(); i ++) {
-        String::Utf8Value str(args[i]);
-        arguments[i] = savepv(*str);
+        //TODO think about refcounts
+        XPUSHs(_convert_v8value_to_sv(args[i]));
     }
-    arguments[args.Length()] = NULL;
-
-    count = call_argv(*method, G_SCALAR, arguments);
-
-    for (int i = 0; i < args.Length(); i ++) {
-        Safefree(arguments[i]);
-    }
-    delete arguments;
-
+  
+  
+    PUTBACK;
+  
+    printf("got pointer %d\n",args.Data()->Int32Value());
+    count = call_sv(INT2PTR(SV*,args.Data()->Int32Value()),G_SCALAR);
+    if (count != 1) croak("Big trouble");
+  
     SPAGAIN;
-
+   
     if (count >= 1) {
         result = _convert_sv_to_v8value(POPs);
     }
-
+    
     PUTBACK;
     FREETMPS;
     LEAVE;
-
     return result;
 }
 
 
 
 void
-V8Context::register_method_by_name(const char *method)
+V8Context::bind_function(const char *name,SV* cod)
 {
     HandleScope scope;
     TryCatch try_catch;
 
     Context::Scope context_scope(context);
 
+    printf("sending pointer %s %p %d\n",name,cod,PTR2IV(cod));
+
+    SvREFCNT_inc(cod);
+
     context->Global()->Set(
-        String::New(method),
-        FunctionTemplate::New(_perl_method_by_name,
-                              String::New(method))->GetFunction()
+        String::New(name),
+        FunctionTemplate::New(_perl_method,
+                              Integer::New(PTR2IV(cod)))->GetFunction()
     );
 }
 SV* V8Context::eval(const char* source) {

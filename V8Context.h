@@ -11,7 +11,7 @@ class V8Context {
 public:
   v8::Persistent<v8::Context> context;
 
-  void register_method_by_name(const char* code);
+  void bind_function(const char* name,SV* code);
 
   V8Context() {
         context = v8::Context::New();
