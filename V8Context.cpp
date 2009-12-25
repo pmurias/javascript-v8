@@ -64,9 +64,7 @@ _perl_method(const Arguments &args)
   
     PUTBACK;
   
-    printf("got pointer %d\n",args.Data()->Int32Value());
     count = call_sv(INT2PTR(SV*,args.Data()->Int32Value()),G_SCALAR);
-    if (count != 1) croak("Big trouble");
   
     SPAGAIN;
    
@@ -90,7 +88,6 @@ V8Context::bind_function(const char *name,SV* cod)
 
     Context::Scope context_scope(context);
 
-    printf("sending pointer %s %p %d\n",name,cod,PTR2IV(cod));
 
     SvREFCNT_inc(cod);
 
