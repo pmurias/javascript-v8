@@ -1,0 +1,16 @@
+JavaScript-V8-Context.xsp
+lib/JavaScript/V8.pm
+lib/JavaScript/V8/Context.pm
+Makefile.PL
+MANIFEST			This list of files
+perlobject.map
+ppport.h
+README
+t/01load.t
+t/basic.t
+t/bind_function.t
+typemap
+typemap.xsp
+V8Context.cpp
+V8Context.h
+WithV8Context.xs
