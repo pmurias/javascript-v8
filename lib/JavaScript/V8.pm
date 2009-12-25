@@ -24,7 +24,7 @@ JavaScript::V8 - Perl interface to the V8
 
   $context->bind_function(write => sub { print @_; });
 
-  $cx->eval(q/
+  $context->eval(q/
     for (i = 99; i > 0; i--) {
         write(i + " bottle(s) of beer on the wall, " + i + " bottle(s) of beer\n");
         write("Take 1 down, pass it around, ");
