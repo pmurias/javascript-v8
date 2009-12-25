@@ -1,0 +1,31 @@
+JavaScript::V8 version 0.1
+===========================
+
+See the individual module documentation for more information
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+DEPENDENCIES
+
+This module requires these other modules and libraries:
+
+   libv8 
+
+INSTALLING V8
+
+Instructions for installing V8 can be found in the POD for JavaScript::V8
+
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2009 Paweł Murias
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
