@@ -101,6 +101,16 @@ SV* V8Context::eval(const char* source) {
     HandleScope handle_scope;
     Context::Scope context_scope(context);
     Handle<Script> script = Script::Compile(String::New(source));
-    SV* result = _convert_v8value_to_sv(script->Run());
-    return result;
+    TryCatch try_catch;
+    Handle<Value> val = script->Run();
+    if (val.IsEmpty()) {
+        Handle<Value> exception = try_catch.Exception();
+        String::AsciiValue exception_str(exception);
+        printf("error\n");
+        sv_setpv(ERRSV,*exception_str);
+        return &PL_sv_undef;
+    } else {
+        sv_setsv(ERRSV,&PL_sv_undef);
+        return _convert_v8value_to_sv(val);
+    }
 }

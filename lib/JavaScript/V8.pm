@@ -62,9 +62,13 @@ it under the same terms as Perl itself
 
 =head1 ACKNOWLEDGMENTS
 
-Claes Jakobsson <claesjac at cpan dot org> - I stole and adapted pieces of docs and API design from JavaScript.pm
-Brian Hammond <brain @ fictorial dot com> - For salvaging the code of V8.pm from a message board (which i took some code and the idea from)
-The hacker who wrote V8.pm and posted it on the message board (http://d.hatena.ne.jp/dayflower/20080905/1220592409)
-All the fine people at #perl@freenode.org for helping me write this module
+=over
+=item Claes Jakobsson <claesjac at cpan dot org>
+I stole and adapted pieces of docs and API design from JavaScript.pm
+=item Brian Hammond <brain @ fictorial dot com>
+For salvaging the code of V8.pm from a message board (which i took some code and the idea from)
+=item The hacker who wrote V8.pm and posted it on the message board (http://d.hatena.ne.jp/dayflower/20080905/1220592409)
+=item All the fine people at #perl@freenode.org for helping me write this module
+=back
 
 
