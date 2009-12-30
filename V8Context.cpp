@@ -81,7 +81,7 @@ _perl_method(const Arguments &args)
 
 
 void
-V8Context::bind_function(const char *name,SV* cod)
+V8Context::bind_function(const char *name,SV* code)
 {
     HandleScope scope;
     TryCatch try_catch;
@@ -89,12 +89,14 @@ V8Context::bind_function(const char *name,SV* cod)
     Context::Scope context_scope(context);
 
 
-    SvREFCNT_inc(cod);
+    /*we will decrement the refcnt in the destructor*/
+    SvREFCNT_inc(code);
+    used.push_back(code);
 
     context->Global()->Set(
         String::New(name),
         FunctionTemplate::New(_perl_method,
-                              Integer::New(PTR2IV(cod)))->GetFunction()
+                              Integer::New(PTR2IV(code)))->GetFunction()
     );
 }
 SV* V8Context::eval(const char* source) {
@@ -106,11 +108,17 @@ SV* V8Context::eval(const char* source) {
     if (val.IsEmpty()) {
         Handle<Value> exception = try_catch.Exception();
         String::AsciiValue exception_str(exception);
-        printf("error\n");
         sv_setpv(ERRSV,*exception_str);
         return &PL_sv_undef;
     } else {
         sv_setsv(ERRSV,&PL_sv_undef);
         return _convert_v8value_to_sv(val);
     }
+}
+
+V8Context::~V8Context() {
+      for (int i=0;i<used.size();i++) {
+          SvREFCNT_dec(used[i]);
+      }
+      context.Dispose();
 }
