@@ -3,7 +3,7 @@ use v5.10;
 use strict;
 use warnings;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 require XSLoader;
 XSLoader::load('JavaScript::V8', $VERSION);
