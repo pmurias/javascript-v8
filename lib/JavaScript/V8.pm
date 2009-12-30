@@ -39,14 +39,12 @@ JavaScript::V8 - Perl interface to the V8
 
 =head1 INSTALLING V8
 
+See http://code.google.com/p/v8/issues/detail?id=413 if you are having trouble on gcc 4.4.1
+
     svn checkout http://v8.googlecode.com/svn/trunk/ v8
-
     cd v8
-
     scons 
-
     sudo mv include/v8.h /usr/local/include/
-
     sudo mv libv8.a /usr/local/lib/
 
 =head1 REPOSITORY
