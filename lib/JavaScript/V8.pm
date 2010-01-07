@@ -43,9 +43,15 @@ See http://code.google.com/p/v8/issues/detail?id=413 if you are having trouble o
 
     svn checkout http://v8.googlecode.com/svn/trunk/ v8
     cd v8
-    scons 
+    scons library=shared
     sudo mv include/v8.h /usr/local/include/
-    sudo mv libv8.a /usr/local/lib/
+    sudo mv libv8.so /usr/local/lib/
+
+If you're using a 64-bit architecture, you need to include <arch=x64> when running scons:
+
+    scons library=shared arch=x64
+
+Otherwise, perl will complain when trying to link/load v8. For more information, see http://code.google.com/p/v8/issues/detail?id=330
 
 =head1 REPOSITORY
 
