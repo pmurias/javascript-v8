@@ -47,7 +47,7 @@ See http://code.google.com/p/v8/issues/detail?id=413 if you are having trouble o
     sudo mv include/v8.h /usr/local/include/
     sudo mv libv8.so /usr/local/lib/
 
-If you're using a 64-bit architecture, you need to include <arch=x64> when running scons:
+If you're using a 64-bit architecture, you need to include C<arch=x64> when running scons:
 
     scons library=shared arch=x64
 
