@@ -1,7 +1,7 @@
-JavaScript::V8 version 0.1
+JavaScript::V8 version 0.2
 ===========================
 
-See the individual module documentation for more information
+See the individual module documentation for more information.
 
 INSTALLATION
 
@@ -16,7 +16,8 @@ DEPENDENCIES
 
 This module requires these other modules and libraries:
 
-   libv8 
+   ExtUtils::XSpp
+   libv8
 
 INSTALLING V8
 
@@ -24,8 +25,7 @@ Instructions for installing V8 can be found in the POD for JavaScript::V8
 
 COPYRIGHT AND LICENCE
 
-Copyright (C) 2009 Paweł Murias
+Copyright (C) 2009-2010 Paweł Murias
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
-
