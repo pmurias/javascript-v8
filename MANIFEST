@@ -1,3 +1,4 @@
+inc/Devel/CheckLib.pm
 JavaScript-V8-Context.xsp
 lib/JavaScript/V8.pm
 lib/JavaScript/V8/Context.pm

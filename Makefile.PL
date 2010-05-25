@@ -1,7 +1,10 @@
 use 5.006001;
 use ExtUtils::MakeMaker;
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence
-# the contents of the Makefile that is written.
+
+use lib qw(inc);
+use Devel::CheckLib;
+
+check_lib_or_exit(lib => ['v8']);
 
 my $CC = 'g++';
 
@@ -22,4 +25,3 @@ WriteMakefile(
     CC                => $CC,
     LD                => '$(CC)',
 );
-
