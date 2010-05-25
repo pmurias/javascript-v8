@@ -1,3 +1,4 @@
+Changes
 inc/Devel/CheckLib.pm
 JavaScript-V8-Context.xsp
 lib/JavaScript/V8.pm
@@ -10,6 +11,8 @@ README
 t/01load.t
 t/basic.t
 t/bind_function.t
+t/error.t
+t/refcnt.t
 typemap
 typemap.xsp
 V8Context.cpp
