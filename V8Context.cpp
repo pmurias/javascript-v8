@@ -57,7 +57,7 @@ _perl_method(const Arguments &args)
     PUSHMARK(SP);
   
     for (int i = 0; i < args.Length(); i ++) {
-        //TODO think about refcounts
+        /* TODO think about refcounts */
         XPUSHs(_convert_v8value_to_sv(args[i]));
     }
   
