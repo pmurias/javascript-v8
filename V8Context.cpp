@@ -22,6 +22,23 @@ static SV *_convert_v8value_to_sv(Handle<Value> value)
         SV *sv = newSVpv(*(String::Utf8Value(value)), 0);
         sv_utf8_decode(sv);
         return sv;
+    } else if (value->IsArray()) {
+        Handle<Array> arrayVal = Handle<Array>::Cast( value );
+        AV *av = newAV();
+        for (int i = 0; i < arrayVal->Length(); i++) {
+            av_push( av, _convert_v8value_to_sv(arrayVal->Get(String::New(""+i))));
+        }
+        return (SV *) av;
+    } else if (value->IsObject()) {
+        Handle<Object> objVal = Handle<Object>::Cast( value );
+        HV *hv = newHV();
+        Local<Array> properties = objVal->GetPropertyNames();
+        for (int i = 0; i < properties->Length(); i++) {
+            String::AsciiValue name(properties->Get(String::New(""+i)));
+            // TODO: Filter (i.e. hasOwnProperty)
+            //hv_stores(hv, name, value->Get(properties->Get(String::New(""+i))));
+        }
+        return (SV *) hv;
     } else {
         croak("Can not convert js value to a perl one");
         return &PL_sv_undef;
