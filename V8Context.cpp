@@ -26,17 +26,29 @@ static SV *_convert_v8value_to_sv(Handle<Value> value)
         Handle<Array> arrayVal = Handle<Array>::Cast( value );
         AV *av = newAV();
         for (int i = 0; i < arrayVal->Length(); i++) {
-            av_push( av, _convert_v8value_to_sv(arrayVal->Get(String::New(""+i))));
+            Handle<Value> elementVal = arrayVal->Get( v8::Integer::New( i ) );
+            if ( elementVal->IsArray() || elementVal->IsObject() ) {
+                av_push( av, newRV_noinc( _convert_v8value_to_sv( elementVal ) ) );
+            } else {
+                av_push( av, _convert_v8value_to_sv( elementVal ) );
+            }
         }
         return (SV *) av;
     } else if (value->IsObject()) {
-        Handle<Object> objVal = Handle<Object>::Cast( value );
+        Handle<Object> objectVal = Handle<Object>::Cast( value );
         HV *hv = newHV();
-        Local<Array> properties = objVal->GetPropertyNames();
+        Local<Array> properties = objectVal->GetPropertyNames();
         for (int i = 0; i < properties->Length(); i++) {
-            String::AsciiValue name(properties->Get(String::New(""+i)));
-            // TODO: Filter (i.e. hasOwnProperty)
-            //hv_stores(hv, name, value->Get(properties->Get(String::New(""+i))));
+            Local<Integer> propertyIndex = Integer::New( i );
+            Local<String> propertyName = Local<String>::Cast( properties->Get( propertyIndex ) );
+            String::Utf8Value propertyNameUTF8( propertyName );
+
+            Local<Value> propertyValue = objectVal->Get( propertyName );
+            if ( propertyValue->IsArray() || propertyValue->IsObject() ) {
+                hv_store(hv, *propertyNameUTF8, 0 - propertyNameUTF8.length(), newRV_noinc(_convert_v8value_to_sv( propertyValue ) ), 0 );
+            } else {
+                hv_store(hv, *propertyNameUTF8, 0 - propertyNameUTF8.length(), _convert_v8value_to_sv( propertyValue ), 0 );
+            }
         }
         return (SV *) hv;
     } else {
