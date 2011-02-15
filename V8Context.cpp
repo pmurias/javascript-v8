@@ -107,7 +107,8 @@ SV* V8Context::eval(const char* source) {
     Handle<Script> script = Script::Compile(String::New(source));
     if(script.IsEmpty()) {
         String::Utf8Value error(try_catch.Exception());
-        croak(*error);
+        sv_setsv(ERRSV, sv_2mortal(newSVpvn(*error, error.length())));
+        return &PL_sv_undef;
     }
 
     Handle<Value> val = script->Run();
@@ -115,9 +116,10 @@ SV* V8Context::eval(const char* source) {
         Handle<Value> exception = try_catch.Exception();
         String::AsciiValue exception_str(exception);
 
-        croak(*exception_str);
+        sv_setsv(ERRSV, sv_2mortal(newSVpvn(*exception_str, exception_str.length())));
+        return &PL_sv_undef;
     } else {
-        sv_setsv(ERRSV,&PL_sv_undef);
+        sv_setsv(ERRSV, &PL_sv_undef);
         return _convert_v8value_to_sv(val);
     }
 }
