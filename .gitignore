@@ -1,0 +1,13 @@
+inc
+META.yml
+MYMETA.yml
+MANIFEST.*bak
+Makefile
+Makefile.old
+.*.sw[op]
+blib
+pm_to_blib
+*.tar.gz
+*.o
+*.bs
+*.c
