@@ -64,7 +64,8 @@ _perl_method(const Arguments &args)
   
     PUTBACK;
   
-    count = call_sv(INT2PTR(SV*,args.Data()->Int32Value()),G_SCALAR);
+    SV *code = (SV *) External::Unwrap(args.Data());
+    count = call_sv(code, G_SCALAR);
   
     SPAGAIN;
    
@@ -96,7 +97,7 @@ V8Context::bind_function(const char *name,SV* code)
     context->Global()->Set(
         String::New(name),
         FunctionTemplate::New(_perl_method,
-                              Integer::New(PTR2IV(code)))->GetFunction()
+                              External::Wrap((void *) code))->GetFunction()
     );
 }
 SV* V8Context::eval(const char* source) {
