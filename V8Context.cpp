@@ -102,14 +102,19 @@ V8Context::bind_function(const char *name,SV* code)
 SV* V8Context::eval(const char* source) {
     HandleScope handle_scope;
     Context::Scope context_scope(context);
-    Handle<Script> script = Script::Compile(String::New(source));
     TryCatch try_catch;
+    Handle<Script> script = Script::Compile(String::New(source));
+    if(script.IsEmpty()) {
+        String::Utf8Value error(try_catch.Exception());
+        croak(*error);
+    }
+
     Handle<Value> val = script->Run();
     if (val.IsEmpty()) {
         Handle<Value> exception = try_catch.Exception();
         String::AsciiValue exception_str(exception);
-        sv_setpv(ERRSV,*exception_str);
-        return &PL_sv_undef;
+
+        croak(*exception_str);
     } else {
         sv_setsv(ERRSV,&PL_sv_undef);
         return _convert_v8value_to_sv(val);

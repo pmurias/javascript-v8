@@ -13,6 +13,7 @@ t/basic.t
 t/bind_function.t
 t/error.t
 t/refcnt.t
+t/syntax_error.t
 typemap
 typemap.xsp
 V8Context.cpp

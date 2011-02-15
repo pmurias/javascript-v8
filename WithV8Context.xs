@@ -9,6 +9,11 @@ extern "C" {
 /* include your class headers here */
 #include "V8Context.h"
 
+/* Handle Perl < 5.10 */
+#if PERL_VERSION < 10
+  #define Null(type) ((type)NULL)
+#endif
+
 /* We need one MODULE... line to start the actual XS section of the file.
  * The XS++ preprocessor will output its own MODULE and PACKAGE lines */
 MODULE = JavaScript::V8		PACKAGE = JavaScript::V8
