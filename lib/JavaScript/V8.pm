@@ -88,6 +88,7 @@ The source code lives at http://github.com/pmurias/javascript-v8.
 =head1 AUTHORS
 
   Pawel Murias <pawelmurias at gmail dot com>
+  David Leadbeater <dgl@dgl.cx>
 
 =head1 COPYRIGHT AND LICENSE
 
