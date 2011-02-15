@@ -1,4 +1,4 @@
-use 5.006001;
+use 5.008;
 use ExtUtils::MakeMaker;
 
 use lib qw(inc);
@@ -7,8 +7,7 @@ use Devel::CheckLib;
 check_lib_or_exit(lib => ['v8']);
 
 my $CC = 'g++';
-
-WriteMakefile(
+my %mm = (
     NAME              => 'JavaScript::V8',
     VERSION_FROM      => 'lib/JavaScript/V8.pm', # finds $VERSION
     PREREQ_PM         => {
@@ -25,3 +24,13 @@ WriteMakefile(
     CC                => $CC,
     LD                => '$(CC)',
 );
+
+if(ExtUtils::MakeMaker->can("VERSION") && ExtUtils::MakeMaker->VERSION(6.46)) {
+  $mm{META_MERGE} = {
+    resources        => {
+      repository     => 'http://github.com/dgl/javascript-v8',
+    }
+  };
+}
+
+WriteMakefile(%mm);
