@@ -1,5 +1,10 @@
 Revision history for Perl extension JavaScript::V8
 
+0.03  Tue 15 Feb 2011 21:00:12 GMT
+    - RT #65348: Perl 5.8 support and ability to trap syntax errors (Nick
+      Johnston)
+    - RT #65534: bind_function CODEREF pointer on 64bit systems (Rémy)
+
 0.02  Wed Dec 30 13:52:43 2009 +0100
     - add support for simple exception handling
     - fix some memory leaks 
