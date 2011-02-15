@@ -1,6 +1,7 @@
 Revision history for Perl extension JavaScript::V8
 
 0.03  Tue 15 Feb 2011 21:00:12 GMT
+    - eval can now handle arrays and objects as return values (Steve Webster)
     - RT #65348: Perl 5.8 support and ability to trap syntax errors (Nick
       Johnston)
     - RT #65534: bind_function CODEREF pointer on 64bit systems (Rémy)
