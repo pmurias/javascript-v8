@@ -131,25 +131,27 @@ V8Context::bind_function(const char *name,SV* code)
 }
 SV* V8Context::eval(const char* source) {
     HandleScope handle_scope;
-    Context::Scope context_scope(context);
     TryCatch try_catch;
+    Context::Scope context_scope(context);
     Handle<Script> script = Script::Compile(String::New(source));
-    if(script.IsEmpty()) {
-        String::Utf8Value error(try_catch.Exception());
-        sv_setsv(ERRSV, sv_2mortal(newSVpvn(*error, error.length())));
-        return &PL_sv_undef;
-    }
 
-    Handle<Value> val = script->Run();
-    if (val.IsEmpty()) {
+    if (try_catch.HasCaught()) {
         Handle<Value> exception = try_catch.Exception();
         String::AsciiValue exception_str(exception);
-
-        sv_setsv(ERRSV, sv_2mortal(newSVpvn(*exception_str, exception_str.length())));
+        sv_setpvn(ERRSV, *exception_str, exception_str.length());
         return &PL_sv_undef;
     } else {
-        sv_setsv(ERRSV, &PL_sv_undef);
-        return _convert_v8value_to_sv(val);
+        Handle<Value> val = script->Run();
+
+        if (val.IsEmpty()) {
+            Handle<Value> exception = try_catch.Exception();
+            String::AsciiValue exception_str(exception);
+            sv_setpvn(ERRSV, *exception_str, exception_str.length());
+            return &PL_sv_undef;
+        } else {
+            sv_setsv(ERRSV,&PL_sv_undef);
+            return _convert_v8value_to_sv(val);
+        }
     }
 }
 
