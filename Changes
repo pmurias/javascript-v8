@@ -1,5 +1,8 @@
 Revision history for Perl extension JavaScript::V8
 
+0.04  Sat 19 Feb 2011 16:08:46 GMT
+    - RT #65875: Better compile exception handling (Rémy Chibois)
+
 0.03  Tue 15 Feb 2011 21:00:12 GMT
     - eval can now handle arrays and objects as return values (Steve Webster)
     - RT #65348: Perl 5.8 support and ability to trap syntax errors (Nick
