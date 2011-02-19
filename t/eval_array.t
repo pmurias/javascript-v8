@@ -9,12 +9,12 @@ my $context = JavaScript::V8::Context->new();
 
 {
     my @expected = ( 'foo' );
-    is_deeply(\$context->eval('["foo"];'), \@expected);
+    is_deeply($context->eval('["foo"];'), \@expected);
 };
 
 {
     my @expected = ( 'foo', 'bar', 'boo', 'far' );
-    is_deeply(\$context->eval('["foo", "bar", "boo", "far"];'), \@expected);
+    is_deeply($context->eval('["foo", "bar", "boo", "far"];'), \@expected);
 };
 
 
