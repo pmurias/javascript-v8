@@ -22,6 +22,5 @@ MODULE = JavaScript::V8		PACKAGE = JavaScript::V8
 ## xsp interface code for our class.
 ## It will include the output of the xsubplusplus run.
 
-INCLUDE: xspp --typemap=typemap.xsp JavaScript-V8-Context.xsp |
-
+INCLUDE_COMMAND: $^X -MExtUtils::XSpp::Cmd -e xspp -- --typemap=typemap.xsp JavaScript-V8-Context.xsp
 
