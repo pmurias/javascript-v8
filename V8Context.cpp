@@ -49,9 +49,17 @@ static SV *_convert_v8value_to_sv(Handle<Value> value)
     }
 }
 static Handle<Value>
-_convert_sv_to_v8value(SV *sv)
+_convert_sv_to_v8value_unscoped(SV *sv)
 {
-    HandleScope scope;
+    int keycount;
+    HV *hash;
+    AV *list;
+    SV *sv_val, *sv_key;
+    HE *hash_entry;
+    I32 keylen;
+    Handle<Object> object;
+    Handle<Array> array;
+    Handle<Value> ret;
 
     if (0) ;
     else if (SvIOK_UV(sv))
@@ -62,8 +70,43 @@ _convert_sv_to_v8value(SV *sv)
         return Number::New(SvNV(sv));
     else if (SvPOK(sv))
         return String::New(SvPV_nolen(sv));
+    else if (SvROK(sv)) {
+        switch(SvTYPE(SvRV(sv))) {
+            case SVt_PVHV:
+                object = Object::New();
+                hash = (HV *)SvRV(sv);
+                keycount = hv_iterinit(hash);
+                printf("%d items in return\n",keycount);
+                while(keycount-- != 0) {
+                    hash_entry = hv_iternext(hash);
+                    sv_key = hv_iterkeysv(hash_entry);
+                    sv_val = hv_iterval(hash, hash_entry);
+                    object->Set(_convert_sv_to_v8value_unscoped(sv_key), _convert_sv_to_v8value_unscoped(sv_val));
+                }
+                return object;
+            case SVt_PVAV:
+                array = Array::New();
+                list = (AV *)SvRV(sv);
+                for(keycount = 0; keycount <= av_len(list); keycount++) {
+                    sv_val = *av_fetch(list, keycount, NULL);
+                    printf("=>>> %s\n", SvPV_nolen(sv_val));
+                    array->Set(v8::Number::New(keycount), _convert_sv_to_v8value_unscoped(sv_val));
+                }
+                return array;
+            case SVt_IV:
+            case SVt_NV:
+            case SVt_PV:
+                return _convert_sv_to_v8value_unscoped((SV*)SvRV(sv));
+        }
+    }
 
     return Undefined();
+}
+static Handle<Value>
+_convert_sv_to_v8value(SV *sv)
+{
+    HandleScope scope;
+    return _convert_sv_to_v8value_unscoped(sv);
 }
 
 static Handle<Value>
