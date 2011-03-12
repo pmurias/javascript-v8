@@ -161,7 +161,7 @@ sub assert_lib {
     # work-a-like for Makefile.PL's LIBS and INC arguments
     # if given as command-line argument, append to %args
     for my $arg (@ARGV) {
-        for my $mm_attr_key qw(LIBS INC) {
+        for my $mm_attr_key (qw(LIBS INC)) {
             if (my ($mm_attr_value) = $arg =~ /\A $mm_attr_key = (.*)/x) {
             # it is tempting to put some \s* into the expression, but the
             # MM command-line parser only accepts LIBS etc. followed by =,
