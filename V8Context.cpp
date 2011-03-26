@@ -317,7 +317,7 @@ XS(v8closure) {
     XSRETURN(1);
 }
 
-static int free_function(SV* sv, MAGIC* mg) {
+static int free_function(pTHX_ SV* sv, MAGIC* mg) {
     AV *data = (AV *) CvXSUBANY(sv).any_ptr;
     Persistent<Function> fn =
         reinterpret_cast<Function*>(SvIV(*av_fetch(data, 1, 0)));
