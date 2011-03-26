@@ -1,3 +1,13 @@
+package JavaScript::V8::Context;
+use Devel::Size;
+
+sub bind_function {
+    my $class = shift;
+    $class->bind(@_);
+}
+
+1;
+
 =head1 NAME
 
 JavaScript::V8::Context - An object in which we can execute JavaScript
@@ -18,9 +28,14 @@ JavaScript::V8::Context - An object in which we can execute JavaScript
 
 =over
 
+=item bind ( name => $scalar )
+
+Converts the given scalar value (array ref, code ref, or hash ref) to a v8
+value and binds it in this context.
+
 =item bind_function ( $name => $subroutine_ref )
 
-Defines a Perl subroutine ($subroutine_ref) as a native function with the given I<$name>.
+DEPRECATED. This is just an alias for bind.
 
 =item eval ( $source )
 
