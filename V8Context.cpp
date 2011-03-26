@@ -34,62 +34,74 @@ calculate_size(SV *sv) {
     return size;
 }
 
-class CVInfo {
+namespace
+{
+    class CVInfo
+    {
+        SV*        ref;
+        IV         bytes;
+        V8Context* context;
+
     public:
-        CVInfo(SV *sv, V8Context *ctx) {
-            context = ctx;
-            ref     = newSVsv(sv);
-            bytes   = calculate_size(ref) + sizeof(CVInfo);
+        CVInfo(SV *sv, V8Context *ctx)
+            : context(ctx)
+            , ref(newSVsv(sv))
+            , bytes(calculate_size(ref) + sizeof(CVInfo))
+        {
             V8::AdjustAmountOfExternalAllocatedMemory(bytes);
         };
+
         ~CVInfo() {
             SvREFCNT_dec(ref);
             V8::AdjustAmountOfExternalAllocatedMemory(-bytes);
         };
-        SV*        ref;
-        IV         bytes;
-        V8Context* context;
+
+        static void destroy(Persistent<Value> o, void *parameter) {
+            CVInfo *code = static_cast<CVInfo*>(External::Unwrap(o));
+            delete code;
+        };
+
+        static Handle<Value> v8invoke(const Arguments& args) {
+            CVInfo *code = static_cast<CVInfo*>(External::Unwrap(args.Data()));
+            return code->invoke(args);
+        }
+
+        Handle<Value> invoke(const Arguments& args);
+    };
+
+    Handle<Value>
+    CVInfo::invoke(const Arguments& args)
+    {
+        int len = args.Length();
+
+        dSP;
+        PUSHMARK(SP);
+        ENTER;
+        SAVETMPS;
+
+        for (int i = 0; i < len; i++) {
+            SV *arg = context->v82sv(args[i]);
+            mXPUSHs(arg);
+        }
+        PUTBACK;
+        int count = call_sv(ref, G_SCALAR);
+        SPAGAIN;
+
+        if (count != 1) {
+            warn("Error invoking CV from V8");
+            return Undefined();
+        }
+
+        SV *result = POPs;
+        Handle<Value> v = context->sv2v8(result);
+
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+
+        return v;
+    }
 };
-
-static void
-destroy_CVInfo(Persistent<Value> o, void *parameter) {
-    CVInfo *code = static_cast<CVInfo*>(External::Unwrap(o));
-    delete code;
-}
-
-static Handle<Value>
-invoke_CVInfo(const Arguments& args) {
-    int len = args.Length();
-    CVInfo *code = static_cast<CVInfo*>(External::Unwrap(args.Data()));
-
-    dSP;
-    PUSHMARK(SP);
-    ENTER;
-    SAVETMPS;
-
-    for (int i = 0; i < len; i++) {
-        SV *arg = code->context->v82sv(args[i]);
-        sv_2mortal(arg);
-        XPUSHs(arg);
-    }
-    PUTBACK;
-    int count = call_sv(code->ref, G_SCALAR);
-    SPAGAIN;
-
-    if (count != 1) {
-        warn("Error invoking CV from V8");
-        return Undefined();
-    }
-
-    SV *result = POPs;
-    Handle<Value> v = code->context->sv2v8(result);
-
-    PUTBACK;
-    FREETMPS;
-    LEAVE;
-
-    return v;
-}
 
 // V8Context class starts here
 
@@ -242,9 +254,9 @@ V8Context::cv2function(SV *sv) {
 
     Local<External>         wrap = External::New((void*) code);
     Persistent<External>    weak = Persistent<External>::New(wrap);
-    Local<FunctionTemplate> tmpl = FunctionTemplate::New(invoke_CVInfo, weak);
+    Local<FunctionTemplate> tmpl = FunctionTemplate::New(CVInfo::v8invoke, weak);
     Handle<Function>        fn   = tmpl->GetFunction();
-    weak.MakeWeak(static_cast<void*>(code), destroy_CVInfo);
+    weak.MakeWeak(static_cast<void*>(code), CVInfo::destroy);
 
     return fn;
 }
