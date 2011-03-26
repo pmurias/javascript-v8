@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 use Test::More;
 use JavaScript::V8;
-use utf8;
 use strict;
 use warnings;
 
@@ -30,6 +29,15 @@ $context->bind_function(foo2 => sub {
 });
 is_deeply($context->eval("foo2()"), $expected);
 
+# ---- Roundtripping
+$context->bind(x => sub { 2*shift });
+is $context->eval("x")->(3), 6;
+
+$context->bind(y => $context->eval("x"));
+is $context->eval("y")->(3), 6, "Roundtrip";
+
+$context->bind(z => { z => $context->eval("y") });
+is $context->eval("z")->{z}->(3), 6, "Roundtrip via object";
 
 done_testing;
 
