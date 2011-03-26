@@ -318,7 +318,7 @@ XS(v8closure) {
 }
 
 static int free_function(SV* sv, MAGIC* mg) {
-    AV *data = (AV *) CvXSUBANY(MUTABLE_CV(sv)).any_ptr;
+    AV *data = (AV *) CvXSUBANY(sv).any_ptr;
     Persistent<Function> fn =
         reinterpret_cast<Function*>(SvIV(*av_fetch(data, 1, 0)));
     fn.Dispose();
