@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-use Test::More tests => 11;
+use Test::More tests => 9 + 2*1000;
 use JavaScript::V8;
 use strict;
 use warnings;
@@ -47,9 +47,11 @@ my $context = JavaScript::V8::Context->new();
     is_deeply($context->eval('x={"\u00a3":{bar:{boo:"far"}}}'), \%expected);die $@ if $@;
 };
 
-my $code = $context->eval('function x() { return 2+2 }; x');
-isa_ok $code, "CODE";
-is $code->(), 4;
+for(1 .. 1000) {
+  my $code = $context->eval('function x() { return 2+2 }; x');
+  isa_ok $code, "CODE";
+  is $code->(), 4;
+}
 
 done_testing;
 

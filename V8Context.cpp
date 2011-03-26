@@ -317,17 +317,35 @@ XS(v8closure) {
     XSRETURN(1);
 }
 
-static MGVTBL v8closure_vtbl;
+static int free_function(SV* sv, MAGIC* mg) {
+    AV *data = (AV *) CvXSUBANY(MUTABLE_CV(sv)).any_ptr;
+    Persistent<Function> fn =
+        reinterpret_cast<Function*>(SvIV(*av_fetch(data, 1, 0)));
+    fn.Dispose();
+    return 0;
+}
+
+static MGVTBL v8closure_vtbl = {
+    0,
+    0,
+    0,
+    0,
+    free_function, /* svt_free */
+    0,
+    0,
+    0
+};
 
 SV*
 V8Context::function2sv(Handle<Function> fn) {
-    CV *code = newXS("JavaScript::V8::Context::v8closure", v8closure, __FILE__);
+    CV *code = newXS(NULL, v8closure, __FILE__);
     AV *data = newAV();
     av_push(data, newSViv((IV) this));
-    av_push(data, newSViv((IV) *fn));
+    av_push(data, newSViv((IV) *Persistent<Function>::New(fn)));
 
     MAGIC *magic = sv_magicext((SV*) code, (SV*) data, PERL_MAGIC_ext,
         &v8closure_vtbl, "v8closure", 0);
+    SvREFCNT_dec(data); // Incremented in sv_magicext
 
     /* Attaching our data as magic will make it get freed when the CV gets
      * freed. We're going to attach it here too though so we can get at it
