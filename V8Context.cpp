@@ -166,11 +166,12 @@ V8Context::bind(const char *name, SV *thing) {
 }
 
 SV*
-V8Context::eval(const char* source) {
+V8Context::eval(SV* source) {
     HandleScope handle_scope;
     TryCatch try_catch;
     Context::Scope context_scope(context);
-    Handle<Script> script = Script::Compile(String::New(source));
+    Handle<String> source_str(sv2v8str(source));
+    Handle<Script> script = Script::Compile(source_str);
 
     if (try_catch.HasCaught()) {
         Handle<Value> exception = try_catch.Exception();
@@ -210,6 +211,13 @@ V8Context::sv2v8(SV *sv) {
 
     warn("Unknown sv type in sv2v8");
     return Undefined();
+}
+
+Handle<String> V8Context::sv2v8str(SV* sv)
+{
+    // Upgrade string to UTF-8 if needed
+    char *utf8 = SvPVutf8_nolen(sv);
+    return String::New(utf8, SvCUR(sv));
 }
 
 SV *

@@ -15,7 +15,7 @@ class V8Context {
         ~V8Context();
 
         void bind(const char*, SV*);
-        SV* eval(const char*);
+        SV* eval(SV*);
 
         Handle<Value> sv2v8(SV*);
         SV*           v82sv(Handle<Value>);
@@ -26,6 +26,7 @@ class V8Context {
         Handle<Array>    av2array(AV*);
         Handle<Object>   hv2object(HV*);
         Handle<Function> cv2function(CV*);
+        Handle<String>   sv2v8str(SV* sv);
 
         SV* array2sv(Handle<Array>);
         SV* object2sv(Handle<Object>);

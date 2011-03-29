@@ -6,8 +6,6 @@
 
   ~V8Context();
 
-  SV* eval(const char* code);
-  void bind(const char* name,SV* code);
+  SV* eval(SV* source);
+  void bind(const char* name, SV* code);
 };
-
-
