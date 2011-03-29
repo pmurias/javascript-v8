@@ -101,6 +101,7 @@ The source code lives at L<http://github.com/dgl/javascript-v8>.
 
   Pawel Murias <pawelmurias at gmail dot com>
   David Leadbeater <dgl@dgl.cx>
+  Paul Driver <frodwith at gmail dot com>
 
 =head1 COPYRIGHT AND LICENSE
 
