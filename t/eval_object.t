@@ -53,5 +53,9 @@ for(1 .. 1000) {
   is $code->(), 4;
 }
 
+my $errcv = $context->eval('function err() { throw new Error("fail") }; err');
+eval { $errcv->() };
+like $@, qr/fail/;
+
 done_testing;
 
