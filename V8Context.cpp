@@ -60,8 +60,8 @@ namespace
             V8::AdjustAmountOfExternalAllocatedMemory(-bytes);
         };
 
-        static void destroy(Persistent<Value> o, void *parameter) {
-            CVInfo *code = static_cast<CVInfo*>(External::Unwrap(o));
+        static void destroy(Persistent<Value> o, void *p) {
+            CVInfo *code = static_cast<CVInfo*>(p);
             delete code;
         };
 
@@ -179,7 +179,7 @@ V8Context::eval(const char* source) {
 
     if (try_catch.HasCaught()) {
         Handle<Value> exception = try_catch.Exception();
-        String::AsciiValue exception_str(exception);
+        String::Utf8Value exception_str(exception);
         sv_setpvn(ERRSV, *exception_str, exception_str.length());
         return &PL_sv_undef;
     } else {
@@ -210,7 +210,7 @@ V8Context::sv2v8(SV *sv) {
     if (SvNOK(sv))
         return Number::New(SvNV(sv));
 
-    warn("Unkown sv type in sv2v8");
+    warn("Unknown sv type in sv2v8");
     return Undefined();
 }
 
@@ -299,13 +299,13 @@ V8Context::hv2object(HV *hv) {
 
 Handle<Function>
 V8Context::cv2function(CV *cv) {
-    CVInfo *code = new CVInfo(cv, this);
-
-    Local<External>         wrap = External::New((void*) code);
+    CVInfo                 *code = new CVInfo(cv, this);
+    void                   *ptr  = static_cast<void*>(code);
+    Local<External>         wrap = External::New(ptr);
     Persistent<External>    weak = Persistent<External>::New(wrap);
     Local<FunctionTemplate> tmpl = FunctionTemplate::New(CVInfo::v8invoke, weak);
     Handle<Function>        fn   = tmpl->GetFunction();
-    weak.MakeWeak(static_cast<void*>(code), CVInfo::destroy);
+    weak.MakeWeak(ptr, CVInfo::destroy);
 
     return fn;
 }
@@ -341,19 +341,39 @@ XS(v8closure) {
 #endif
     dXSARGS;
 
-    HandleScope     scope;
-    ClosureData    *data = ClosureData::for_cv(cv);
-    V8Context      *self = data->context;
-    Handle<Context> ctx  = self->context;
-    Context::Scope  context_scope(ctx);
-    Handle<Value>   argv[items];
+    bool die = false;
 
-    for (I32 i = 0; i < items; i++) {
-        argv[i] = self->sv2v8(ST(i));
+    {
+        /* We have to do all this inside a block so that all the proper
+         * destuctors are called if we need to croak. If we just croak in the
+         * middle of the block, v8 will segfault at program exit. */
+        TryCatch        try_catch;
+        HandleScope     scope;
+        ClosureData    *data = ClosureData::for_cv(cv);
+        V8Context      *self = data->context;
+        Handle<Context> ctx  = self->context;
+        Context::Scope  context_scope(ctx);
+        Handle<Value>   argv[items];
+
+        for (I32 i = 0; i < items; i++) {
+            argv[i] = self->sv2v8(ST(i));
+        }
+
+        Handle<Value> result = data->function->Call(ctx->Global(), items, argv);
+        if (try_catch.HasCaught()) {
+            Local<Value> e = try_catch.Exception();
+            String::Utf8Value str(e);
+            sv_setpvn(ERRSV, *str, str.length());
+            die = true;
+        }
+        else {
+            ST(0) = sv_2mortal(self->v82sv(result));
+        }
     }
 
-    ST(0) = self->v82sv(data->function->Call(ctx->Global(), items, argv));
-    sv_2mortal(ST(0));
+    if (die)
+        croak(NULL);
+
     XSRETURN(1);
 }
 

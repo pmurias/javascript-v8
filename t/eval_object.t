@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-use Test::More tests => 9 + 2*1000;
+use Test::More tests => 10 + 2*1000;
 use JavaScript::V8;
 use strict;
 use warnings;
@@ -50,12 +50,11 @@ my $context = JavaScript::V8::Context->new();
 for(1 .. 1000) {
   my $code = $context->eval('function x() { return 2+2 }; x');
   isa_ok $code, "CODE";
-  is $code->(), 4;
+  is $code->(), 4, 'returns expected value';
 }
 
 my $errcv = $context->eval('function err() { throw new Error("fail") }; err');
 eval { $errcv->() };
-like $@, qr/fail/;
+like $@, qr/fail/, 'got proper exception';
 
 done_testing;
-
