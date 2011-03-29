@@ -12,7 +12,6 @@ my %mm = (
     VERSION_FROM      => 'lib/JavaScript/V8.pm', # finds $VERSION
     PREREQ_PM         => {
       'ExtUtils::XSpp' => '0.11',
-      'Devel::Size'    => '0.71',
     }, # e.g., Module::Name => 1.1
     ABSTRACT_FROM  => 'lib/JavaScript/V8.pm', # retrieve abstract from module
     AUTHOR         => 'Pawel Murias <pawelmurias@gmail.org>',

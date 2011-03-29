@@ -1,5 +1,4 @@
 package JavaScript::V8::Context;
-use Devel::Size;
 
 sub bind_function {
     my $class = shift;
