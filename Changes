@@ -1,5 +1,10 @@
 Revision history for Perl extension JavaScript::V8
 
+0.06  Tue 29 Mar 2011 21:26:00 BST
+    - Support for returning functions from JavaScript (Paul Driver)
+    - Included Devel::CheckLib upgraded (Paul Driver)
+    - Fixes for NUL and Latin-1 values in eval
+
 0.05  Sat 12 Mar 2011 15:40:20 GMT
     - API change: Always return array and hash references (previously the API
       was broken, returning raw AV and HVes, resulting in "Bizarre copy of XXX"
