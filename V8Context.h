@@ -25,7 +25,7 @@ class V8Context {
         Handle<Value>    rv2v8(SV*);
         Handle<Array>    av2array(AV*);
         Handle<Object>   hv2object(HV*);
-        Handle<Function> cv2function(SV*);
+        Handle<Function> cv2function(CV*);
 
         SV* array2sv(Handle<Array>);
         SV* object2sv(Handle<Object>);

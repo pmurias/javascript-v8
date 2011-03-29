@@ -11,6 +11,10 @@ using namespace v8;
 // Internally-used wrapper around coderefs
 static IV
 calculate_size(SV *sv) {
+    return 1000;
+    /*
+     * There are horrible bugs in the current Devel::Size, so we can't do this
+     * accurately. But if there weren't, this is how we'd do it!
     dSP;
     ENTER;
     SAVETMPS;
@@ -25,13 +29,13 @@ calculate_size(SV *sv) {
     }
 
     SPAGAIN;
-    SV *result = POPs;
-    IV size    = SvIV(result);
+    IV size    = SvIV(POPs);
     PUTBACK;
     FREETMPS;
     LEAVE;
 
     return size;
+    */
 }
 
 namespace
@@ -43,9 +47,9 @@ namespace
         V8Context* context;
 
     public:
-        CVInfo(SV *sv, V8Context *ctx)
+        CVInfo(CV *cv, V8Context *ctx)
             : context(ctx)
-            , ref(newSVsv(sv))
+            , ref(newRV_inc((SV*)cv))
             , bytes(calculate_size(ref) + sizeof(CVInfo))
         {
             V8::AdjustAmountOfExternalAllocatedMemory(bytes);
@@ -75,10 +79,10 @@ namespace
         int len = args.Length();
 
         dSP;
-        PUSHMARK(SP);
         ENTER;
         SAVETMPS;
 
+        PUSHMARK(SP);
         for (int i = 0; i < len; i++) {
             SV *arg = context->v82sv(args[i]);
             mXPUSHs(arg);
@@ -92,8 +96,7 @@ namespace
             return Undefined();
         }
 
-        SV *result = POPs;
-        Handle<Value> v = context->sv2v8(result);
+        Handle<Value> v = context->sv2v8(POPs);
 
         PUTBACK;
         FREETMPS;
@@ -101,6 +104,51 @@ namespace
 
         return v;
     }
+
+    class ClosureData
+    {
+    public:
+        V8Context *context;
+        Persistent<Function> function;
+
+        ClosureData(CV* code, V8Context *ctx, Handle<Function> fn)
+            : context(ctx)
+            , function(Persistent<Function>::New(fn))
+        {
+            SV *ptr = newSViv((IV) this);
+            sv_magicext((SV*) code, ptr, PERL_MAGIC_ext,
+                &ClosureData::vtable, "v8closure", 0);
+            SvREFCNT_dec(ptr); // refcnt is incremented by sv_magicext
+            CvXSUBANY(code).any_ptr = static_cast<void*>(this);
+        };
+        ~ClosureData() {
+            function.Dispose();
+        };
+        static ClosureData *for_cv(CV *code) {
+            return static_cast<ClosureData*>(CvXSUBANY(code).any_ptr);
+        }
+
+    private:
+        static MGVTBL vtable;
+        static int svt_free(pTHX_ SV*, MAGIC*);
+    };
+
+    MGVTBL ClosureData::vtable = {
+        0,
+        0,
+        0,
+        0,
+        ClosureData::svt_free,
+        0,
+        0,
+        0
+    };
+
+    int ClosureData::svt_free(pTHX_ SV* sv, MAGIC* mg) {
+        ClosureData *data = ClosureData::for_cv((CV *)sv);
+        delete data;
+        return 0;
+    };
 };
 
 // V8Context class starts here
@@ -110,6 +158,7 @@ V8Context::V8Context() {
 }
 
 V8Context::~V8Context() {
+    while(!V8::IdleNotification()); // force garbage collection
     context.Dispose();
 }
 
@@ -218,7 +267,7 @@ V8Context::rv2v8(SV *sv) {
         return hv2object((HV*)ref);
     }
     if (t == SVt_PVCV) {
-        return cv2function(sv);
+        return cv2function((CV*)ref);
     }
     warn("Unknown reference type in sv2v8()");
     return Undefined();
@@ -249,8 +298,8 @@ V8Context::hv2object(HV *hv) {
 }
 
 Handle<Function>
-V8Context::cv2function(SV *sv) {
-    CVInfo *code = new CVInfo(sv, this);
+V8Context::cv2function(CV *cv) {
+    CVInfo *code = new CVInfo(cv, this);
 
     Local<External>         wrap = External::New((void*) code);
     Persistent<External>    weak = Persistent<External>::New(wrap);
@@ -291,66 +340,26 @@ XS(v8closure) {
     dVAR;
 #endif
     dXSARGS;
-    AV *data = (AV *) CvXSUBANY(cv).any_ptr;
 
-    V8Context       *self =
-        reinterpret_cast<V8Context*>(SvIV(*av_fetch(data, 0, 0)));
-    Handle<Function> fn   = Handle<Function>(
-        reinterpret_cast<Function*>(SvIV(*av_fetch(data, 1, 0)))
-    );
-
-    HandleScope      scope;
-    Context::Scope   context_scope(self->context);
-    Handle<Value>   *argv = new Handle<Value>[items];
+    HandleScope     scope;
+    ClosureData    *data = ClosureData::for_cv(cv);
+    V8Context      *self = data->context;
+    Handle<Context> ctx  = self->context;
+    Context::Scope  context_scope(ctx);
+    Handle<Value>   argv[items];
 
     for (I32 i = 0; i < items; i++) {
         argv[i] = self->sv2v8(ST(i));
     }
 
-    Handle<Object> global = self->context->Global();
-    Handle<Value>  result = fn->Call(global, items, argv);
-
-    delete[] argv;
-
-    ST(0) = self->v82sv(result);
+    ST(0) = self->v82sv(data->function->Call(ctx->Global(), items, argv));
     sv_2mortal(ST(0));
     XSRETURN(1);
 }
 
-static int free_function(pTHX_ SV* sv, MAGIC* mg) {
-    AV *data = (AV *) CvXSUBANY(sv).any_ptr;
-    Persistent<Function> fn =
-        reinterpret_cast<Function*>(SvIV(*av_fetch(data, 1, 0)));
-    fn.Dispose();
-    return 0;
-}
-
-static MGVTBL v8closure_vtbl = {
-    0,
-    0,
-    0,
-    0,
-    free_function, /* svt_free */
-    0,
-    0,
-    0
-};
-
 SV*
 V8Context::function2sv(Handle<Function> fn) {
-    CV *code = newXS(NULL, v8closure, __FILE__);
-    AV *data = newAV();
-    av_push(data, newSViv((IV) this));
-    av_push(data, newSViv((IV) *Persistent<Function>::New(fn)));
-
-    MAGIC *magic = sv_magicext((SV*) code, (SV*) data, PERL_MAGIC_ext,
-        &v8closure_vtbl, "v8closure", 0);
-    SvREFCNT_dec(data); // Incremented in sv_magicext
-
-    /* Attaching our data as magic will make it get freed when the CV gets
-     * freed. We're going to attach it here too though so we can get at it
-     * quickly. */
-    CvXSUBANY(code).any_ptr = (void*) data;
-
+    CV          *code = newXS(NULL, v8closure, __FILE__);
+    ClosureData *data = new ClosureData(code, this, fn);
     return newRV_noinc((SV*)code);
 }
