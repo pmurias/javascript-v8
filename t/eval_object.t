@@ -37,9 +37,10 @@ my $context = JavaScript::V8::Context->new();
 };
 
 {
-    local $TODO = "NUL handling";
     my %expected = ( "\x{1234}" => { bar => { boo => "far\x{0}" } } );
+    { local $TODO = "NUL in eval";
     is_deeply($context->eval(qq[x={"\x{1234}":{bar:{boo:"far\x{0}"}}}]), \%expected);
+    }
     is_deeply($context->eval('x={"\u1234":{bar:{boo:"far\u0000"}}}'), \%expected);
     is_deeply($context->eval('x'), \%expected);
 };

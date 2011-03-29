@@ -196,8 +196,11 @@ Handle<Value>
 V8Context::sv2v8(SV *sv) {
     if (SvROK(sv))
         return rv2v8(sv);
-    if (SvPOK(sv))
-        return String::New(SvPV_nolen(sv));
+    if (SvPOK(sv)) {
+        // Upgrade string to UTF-8 if needed
+        char *utf8 = SvPVutf8_nolen(sv);
+        return String::New(utf8, SvCUR(sv));
+    }
     if (SvIOK_UV(sv))
         return Uint32::New(SvUV(sv));
     if (SvIOK(sv))
@@ -227,7 +230,8 @@ V8Context::v82sv(Handle<Value> value) {
         return newSVnv(value->NumberValue());
 
     if (value->IsString()) {
-        SV *sv = newSVpv(*(String::Utf8Value(value)), 0);
+        String::Utf8Value str(value);
+        SV *sv = newSVpvn(*str, str.length());
         sv_utf8_decode(sv);
         return sv;
     }
