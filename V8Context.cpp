@@ -91,11 +91,6 @@ namespace
         int count = call_sv(ref, G_SCALAR);
         SPAGAIN;
 
-        if (count != 1) {
-            warn("Error invoking CV from V8");
-            return Undefined();
-        }
-
         Handle<Value> v = context->sv2v8(POPs);
 
         PUTBACK;
