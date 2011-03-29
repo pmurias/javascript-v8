@@ -158,8 +158,8 @@ V8Context::V8Context() {
 }
 
 V8Context::~V8Context() {
-    while(!V8::IdleNotification()); // force garbage collection
     context.Dispose();
+    while(!V8::IdleNotification()); // force garbage collection
 }
 
 void
