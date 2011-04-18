@@ -133,10 +133,7 @@ namespace
         0,
         0,
         0,
-        ClosureData::svt_free,
-        0,
-        0,
-        0
+        ClosureData::svt_free
     };
 
     int ClosureData::svt_free(pTHX_ SV* sv, MAGIC* mg) {
@@ -266,7 +263,7 @@ V8Context::v82sv(Handle<Value> value) {
 Handle<Value>
 V8Context::rv2v8(SV *sv) {
     SV *ref  = SvRV(sv);
-    svtype t = SvTYPE(ref);
+    unsigned t = SvTYPE(ref);
     if (t == SVt_PVAV) {
         return av2array((AV*)ref);
     }
