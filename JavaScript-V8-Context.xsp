@@ -2,7 +2,7 @@
 
 %name{JavaScript::V8::Context} class V8Context
 {
-  V8Context();
+  %name{_new} V8Context(int time_limit);
 
   ~V8Context();
 

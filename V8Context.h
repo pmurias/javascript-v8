@@ -11,7 +11,7 @@ using namespace v8;
 
 class V8Context {
     public:
-        V8Context();
+        V8Context(int time_limit = 0);
         ~V8Context();
 
         void bind(const char*, SV*);
@@ -31,6 +31,8 @@ class V8Context {
         SV* array2sv(Handle<Array>);
         SV* object2sv(Handle<Object>);
         SV* function2sv(Handle<Function>);
+
+        int time_limit_;
 };
 
 #endif

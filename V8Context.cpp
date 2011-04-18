@@ -5,6 +5,8 @@
 #include "XSUB.h"
 #include "ppport.h"
 #undef New
+#include <pthread.h>
+#include <time.h>
 
 using namespace v8;
 
@@ -145,8 +147,9 @@ namespace
 
 // V8Context class starts here
 
-V8Context::V8Context() {
+V8Context::V8Context(int time_limit) {
     context = Context::New();
+    time_limit_ = time_limit;
 }
 
 V8Context::~V8Context() {
@@ -162,6 +165,54 @@ V8Context::bind(const char *name, SV *thing) {
     context->Global()->Set(String::New(name), sv2v8(thing));
 }
 
+// I fucking hate pthreads, this lacks error handling, but hopefully works.
+class thread_canceller {
+public:
+    thread_canceller(int sec)
+        : sec_(sec)
+    {
+        if (sec_) {
+            pthread_cond_init(&cond_, NULL);
+            pthread_mutex_init(&mutex_, NULL);
+            pthread_mutex_lock(&mutex_); // passed locked to canceller
+            pthread_create(&id_, NULL, canceller, this);
+        }
+    }
+
+    ~thread_canceller() {
+        if (sec_) {
+            pthread_mutex_lock(&mutex_);
+            pthread_cond_signal(&cond_);
+            pthread_mutex_unlock(&mutex_);
+            void *ret;
+            pthread_join(id_, &ret);
+            pthread_mutex_destroy(&mutex_);
+            pthread_cond_destroy(&cond_);
+        }
+    }
+
+private:
+
+    static void* canceller(void* this_) {
+        thread_canceller* me = static_cast<thread_canceller*>(this_);
+        struct timeval tv;
+        struct timespec ts;
+        gettimeofday(&tv, NULL);
+        ts.tv_sec = tv.tv_sec + me->sec_;
+        ts.tv_nsec = tv.tv_usec * 1000;
+
+        if (pthread_cond_timedwait(&me->cond_, &me->mutex_, &ts) == ETIMEDOUT) {
+            V8::TerminateExecution();
+        }
+        pthread_mutex_unlock(&me->mutex_);
+    }
+
+    pthread_t id_;
+    pthread_cond_t cond_;
+    pthread_mutex_t mutex_;
+    int sec_;
+};
+
 SV*
 V8Context::eval(SV* source) {
     HandleScope handle_scope;
@@ -176,6 +227,7 @@ V8Context::eval(SV* source) {
         sv_setpvn(ERRSV, *exception_str, exception_str.length());
         return &PL_sv_undef;
     } else {
+        thread_canceller canceller(time_limit_);
         Handle<Value> val = script->Run();
 
         if (val.IsEmpty()) {

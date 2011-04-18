@@ -1,5 +1,12 @@
 package JavaScript::V8::Context;
 
+sub new {
+    my($class, %args) = @_;
+
+    my $time_limit = delete $args{time_limit} || 0;
+    $class->_new($time_limit);
+}
+
 sub bind_function {
     my $class = shift;
     $class->bind(@_);
@@ -26,6 +33,13 @@ JavaScript::V8::Context - An object in which we can execute JavaScript
 =head1 INTERFACE
 
 =over
+
+=item new ( [time_limit => seconds] )
+
+Create a new JavaScript::V8::Context object. The optional C<time_limit>
+parameter will force an exception after the script has run for a number of
+seconds; this limit will be enforced even if V8 calls back to Perl or blocks on
+IO.
 
 =item bind ( name => $scalar )
 
