@@ -77,15 +77,28 @@ On Ubuntu 10.04 (and possibly Debian), the library and header files can be insta
 
 Similar packages may be available for other distributions (adjust the package names accordingly).
 
-=head1 DOCUMENTATION
-
-See documentation for C<JavaScript::V8::Context> for more details.
-
-=head1 REPOSITORY
-
-The source code lives at L<http://github.com/dgl/javascript-v8>.
-
 =head1 SEE ALSO
+
+=head2 Further documentation
+
+=over
+
+=item * L<JavaScript::V8::Context>
+
+Details on the context object and the mapping between JavaScript and Perl
+types.
+
+=back
+
+=head2 Extension modules
+
+=over
+
+=item * L<JavaScript::V8x::TestMoreish>
+
+=back
+
+=head2 Other JavaScript bindings for Perl
 
 =over
 
@@ -95,11 +108,13 @@ The source code lives at L<http://github.com/dgl/javascript-v8>.
 
 =item * L<JavaScript::SpiderMonkey>
 
-=item * L<JavaScript::V8x::TestMoreish>
-
 =item * L<JE>
 
 =back
+
+=head1 REPOSITORY
+
+The source code lives at L<http://github.com/dgl/javascript-v8>.
 
 =head1 AUTHORS
 

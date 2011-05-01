@@ -109,6 +109,9 @@ structure.
 
 =back
 
+The exact semantics of this interface are subject to change in a future
+version (the binding may become more complete).
+
 =item bind_function ( $name => $subroutine_ref )
 
 DEPRECATED. This is just an alias for bind.
@@ -126,13 +129,16 @@ Perl type:
   Undefined, null             | undef
   Numeric                     | scalar
   Boolean                     | scalar (1 or 0)
-  String                      | scalar (with UTF-8 flag on)
+  String                      | scalar
   Function                    | code reference
   Object                      | hash reference
   Array                       | array reference
 
-If there is a compilation error (such as a syntax error) or an uncaught exception
-is thrown in JavaScript, this method returns undef and $@ is set.
+If there is a compilation error (such as a syntax error) or an uncaught
+exception is thrown in JavaScript, this method returns undef and $@ is set.
+
+A function reference returned from JavaScript is not wrapped in the context
+created by eval(), so JavaScript exceptions will propagate to Perl code.
 
 =back
 
