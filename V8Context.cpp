@@ -334,7 +334,7 @@ V8Context::av2array(AV *av) {
     I32 i, len = av_len(av) + 1;
     Handle<Array> array = Array::New(len);
     for (i = 0; i < len; i++) {
-        array->Set(i, sv2v8(*av_fetch(av, i, 0)));
+        array->Set(Integer::New(i), sv2v8(*av_fetch(av, i, 0)));
     }
     return array;
 }
