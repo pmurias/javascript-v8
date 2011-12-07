@@ -30,6 +30,7 @@ class V8Context {
 
         SV* array2sv(Handle<Array>);
         SV* object2sv(Handle<Object>);
+        SV* object2blessed(Handle<Object>);
         SV* function2sv(Handle<Function>);
 
         int time_limit_;
