@@ -485,7 +485,7 @@ V8Context::blessed2object(SV *sv) {
 
     SvREFCNT_inc(sv);
 
-    object->Set(String::New("__perlPtr"), External::Wrap(sv));
+    object->SetHiddenValue(String::New("perlPtr"), External::Wrap(sv));
     object->SetPrototype(get_prototype(sv));
 
     return object;
@@ -540,8 +540,10 @@ V8Context::array2sv(Handle<Array> array) {
 
 SV *
 V8Context::object2sv(Handle<Object> obj) {
-    if (obj->Has(String::New("__perlPtr"))) {
-        SV* sv = (SV*)External::Unwrap(obj->Get(String::New("__perlPtr")));
+    Local<Value> ptr = obj->GetHiddenValue(String::New("perlPtr"));
+
+    if (!ptr.IsEmpty()) {
+        SV* sv = (SV*)External::Unwrap(ptr);
         SvREFCNT_inc(sv);
         return sv;
     }
