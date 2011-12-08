@@ -424,6 +424,35 @@ V8Context::fill_prototype(Handle<Object> prototype, HV* stash) {
     }
 }
 
+Handle<Object>
+V8Context::get_prototype(SV *sv) {
+    HV *stash = SvSTASH(SvRV(sv));
+    char *package = HvNAME(stash);
+
+    std::string pkg(package);
+    ObjectMap::iterator it;
+
+    Persistent<Object> prototype;
+
+    it = prototypes.find(pkg);
+    if (it != prototypes.end()) {
+        prototype = it->second;
+    }
+    else {
+        prototype = prototypes[pkg] = Persistent<Object>::New(Object::New());
+
+        if (AV *isa = mro_get_linear_isa(stash)) {
+            for (int i = 0; i <= av_len(isa); i++) {
+                SV **sv = av_fetch(isa, i, 0);
+                HV *stash = gv_stashsv(*sv, 0);
+                fill_prototype(prototype, stash);
+            }
+        }
+    }
+
+    return prototype;
+}
+
 Handle<Value>
 V8Context::rv2v8(SV *sv) {
     SV *ref  = SvRV(sv);
@@ -454,34 +483,10 @@ Handle<Object>
 V8Context::blessed2object(SV *sv) {
     Local<Object> object = Object::New();
 
-    HV *stash = SvSTASH(SvRV(sv));
-    char *package = HvNAME(stash);
     SvREFCNT_inc(sv);
 
     object->Set(String::New("__perlPtr"), External::Wrap(sv));
-
-    std::string pkg(package);
-    ObjectMap::iterator it;
-
-    Persistent<Object> prototype;
-
-    it = prototypes.find(pkg);
-    if (it != prototypes.end()) {
-        prototype = it->second;
-    }
-    else {
-        prototype = prototypes[pkg] = Persistent<Object>::New(Object::New());
-
-        if (AV *isa = mro_get_linear_isa(stash)) {
-            for (int i = 0; i <= av_len(isa); i++) {
-                SV **sv = av_fetch(isa, i, 0);
-                HV *stash = gv_stashsv(*sv, 0);
-                fill_prototype(prototype, stash);
-            }
-        }
-    }
-
-    object->SetPrototype(prototype);
+    object->SetPrototype(get_prototype(sv));
 
     return object;
 }

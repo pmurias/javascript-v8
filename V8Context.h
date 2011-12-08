@@ -43,6 +43,7 @@ class V8Context {
         SV* function2sv(Handle<Function>);
 
         void fill_prototype(Handle<Object> prototype, HV* stash);
+        Handle<Object> get_prototype(SV* sv);
 
         ObjectMap prototypes;
 
