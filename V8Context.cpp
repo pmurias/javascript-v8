@@ -9,6 +9,7 @@
 #include <time.h>
 
 using namespace v8;
+using namespace std;
 
 // Internally-used wrapper around coderefs
 static IV
@@ -182,10 +183,12 @@ namespace
 
 // V8Context class starts here
 
-V8Context::V8Context(int time_limit) {
-    context = Context::New();
-    time_limit_ = time_limit;
-}
+V8Context::V8Context(int time_limit, bool enable_blessing_, const char* bless_prefix_)
+    : time_limit_(time_limit),
+      bless_prefix(bless_prefix_),
+      enable_blessing(enable_blessing_),
+      context(Context::New())
+{ }
 
 V8Context::~V8Context() {
     context.Dispose();
@@ -419,7 +422,7 @@ V8Context::array2sv(Handle<Array> array) {
 
 SV *
 V8Context::object2sv(Handle<Object> obj) {
-    if (obj->Has(String::New("__perlPackage"))) {
+    if (enable_blessing && obj->Has(String::New("__perlPackage"))) {
         return object2blessed(obj);
     }
     HV *hv = newHV();
@@ -543,12 +546,12 @@ V8Context::function2sv(Handle<Function> fn) {
 SV*
 V8Context::object2blessed(Handle<Object> obj) {
     Local<Object> prototype = obj->GetPrototype()->ToObject();
-    Local<String> package = obj->Get(String::New("__perlPackage"))->ToString();
+    string package = bless_prefix + string(*String::AsciiValue(obj->Get(String::New("__perlPackage"))->ToString()));
 
-    HV *stash = gv_stashpv(*String::AsciiValue(package), 0);
+    HV *stash = gv_stashpv(package.c_str(), 0);
 
     if (!stash) {
-        stash = gv_stashpv(*String::AsciiValue(package), GV_ADD);
+        stash = gv_stashpv(package.c_str(), GV_ADD);
 
         Local<Array> properties = prototype->GetPropertyNames();
         for (int i = 0; i < properties->Length(); i++) {
@@ -570,7 +573,7 @@ V8Context::object2blessed(Handle<Object> obj) {
     }
 
     ObjectData *data = new ObjectData(obj);
-    SV *rv = sv_setref_pv(newSV(0), *String::AsciiValue(package), (void*)data);
+    SV *rv = sv_setref_pv(newSV(0), package.c_str(), (void*)data);
     data->set_sv(SvRV(rv));
 
     return rv;
