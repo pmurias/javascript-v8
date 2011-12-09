@@ -24,6 +24,8 @@ class V8Context {
 
         void bind(const char*, SV*);
         SV* eval(SV*);
+        bool idle_notification();
+        int adjust_amount_of_external_allocated_memory(int bytes);
 
         Handle<Value> sv2v8(SV*);
         SV*           v82sv(Handle<Value>);

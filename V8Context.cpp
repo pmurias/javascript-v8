@@ -8,6 +8,8 @@
 #include <pthread.h>
 #include <time.h>
 
+#define L(...) fprintf(stderr, ##__VA_ARGS__)
+
 using namespace v8;
 using namespace std;
 
@@ -706,3 +708,21 @@ V8Context::object2blessed(Handle<Object> obj) {
     return rv;
 }
 
+bool
+V8Context::idle_notification() {
+    /*
+    HeapStatistics hs;
+    V8::GetHeapStatistics(&hs);
+    L(
+        "%d %d %d\n", 
+        hs.total_heap_size(), 
+        hs.total_heap_size_executable(), 
+        hs.used_heap_size()
+    );
+    */
+    return V8::IdleNotification();
+}
+
+int
+V8Context::adjust_amount_of_external_allocated_memory(int change_in_bytes) {
+    return V8::AdjustAmountOfExternalAllocatedMemory(change_in_bytes);}
