@@ -481,14 +481,21 @@ V8Context::rv2v8(SV *sv) {
     return Undefined();
 }
 
+static void DestroyCallback(Persistent<Value> o, void *sv) {
+    SvREFCNT_dec((SV*)sv);
+    o.Dispose();
+}
+
 Handle<Object>
 V8Context::blessed2object(SV *sv) {
-    Local<Object> object = Object::New();
+    Persistent<Object> object(Persistent<Object>::New(Object::New()));
 
     SvREFCNT_inc(sv);
 
     object->SetHiddenValue(String::New("perlPtr"), External::Wrap(sv));
     object->SetPrototype(get_prototype(sv));
+
+    object.MakeWeak(sv, DestroyCallback);
 
     return object;
 }

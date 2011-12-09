@@ -81,9 +81,10 @@ is $context->eval('(function(c) { return c })')->($c1), $c1;
         $c->{on_destroy} = sub { $destroyed = 1 };
         $context->eval('(function(c) { C = c })')->($c);
     }
+    1 while !$context->idle_notification;
 
-    ok !$destroyed;
-    is $context->eval('C')->get, 42;
+    ok !$destroyed, 'global js object is kept alive when perl scope is done';
+    is $context->eval('C')->get, 42, 'proper value is retained';
 }
 
 {
@@ -94,8 +95,9 @@ is $context->eval('(function(c) { return c })')->($c1), $c1;
         $c->{on_destroy} = sub { $destroyed = 1 };
         $context->eval('(function(c) { return c.get() + 1; })')->($c);
     }
+    1 while !$context->idle_notification;
 
-    ok $destroyed;
+    ok $destroyed, 'local js object is destroyed after perl scope is done';
 }
 
 done_testing;
