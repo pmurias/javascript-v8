@@ -734,4 +734,10 @@ V8Context::idle_notification() {
 
 int
 V8Context::adjust_amount_of_external_allocated_memory(int change_in_bytes) {
-    return V8::AdjustAmountOfExternalAllocatedMemory(change_in_bytes);}
+    return V8::AdjustAmountOfExternalAllocatedMemory(change_in_bytes);
+}
+
+void
+V8Context::set_flags_from_string(char *str) {
+    V8::SetFlagsFromString(str, strlen(str));
+}
