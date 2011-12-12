@@ -8,6 +8,8 @@
 #include <pthread.h>
 #include <time.h>
 
+#define L(...) fprintf(stderr, ##__VA_ARGS__)
+
 using namespace v8;
 using namespace std;
 
@@ -40,6 +42,33 @@ calculate_size(SV *sv) {
     return size;
     */
 }
+
+#define SETUP_PERL_CALL() \
+    int len = args.Length(); \
+\
+    dSP; \
+    ENTER; \
+    SAVETMPS; \
+\
+    PUSHMARK(SP);
+    
+#define SETUP_PERL_ARGS() \
+    for (int i = 0; i < len; i++) { \
+        SV *arg = context->v82sv(args[i]); \
+        mXPUSHs(arg); \
+    } \
+    PUTBACK;
+
+#define CONVERT_PERL_RESULT() \
+    SPAGAIN; \
+\
+    Handle<Value> v = context->sv2v8(POPs); \
+\
+    PUTBACK; \
+    FREETMPS; \
+    LEAVE; \
+\
+    return v;
 
 namespace
 {
@@ -79,28 +108,51 @@ namespace
     Handle<Value>
     CVInfo::invoke(const Arguments& args)
     {
-        int len = args.Length();
-
-        dSP;
-        ENTER;
-        SAVETMPS;
-
-        PUSHMARK(SP);
-        for (int i = 0; i < len; i++) {
-            SV *arg = context->v82sv(args[i]);
-            mXPUSHs(arg);
-        }
-        PUTBACK;
+        SETUP_PERL_CALL();
+        SETUP_PERL_ARGS();
         int count = call_sv(ref, G_SCALAR);
-        SPAGAIN;
+        CONVERT_PERL_RESULT();
+    }
 
-        Handle<Value> v = context->sv2v8(POPs);
+    class MethodInfo
+    {
+        string     name;
+        IV         bytes;
+        V8Context* context;
 
-        PUTBACK;
-        FREETMPS;
-        LEAVE;
+    public:
+        MethodInfo(const char* nm, V8Context *ctx)
+            : context(ctx)
+            , name(nm)
+            , bytes(1)
+        {
+            V8::AdjustAmountOfExternalAllocatedMemory(bytes);
+        };
 
-        return v;
+        ~MethodInfo() {
+            V8::AdjustAmountOfExternalAllocatedMemory(-bytes);
+        };
+
+        static void destroy(Persistent<Value> o, void *p) {
+            MethodInfo *code = static_cast<MethodInfo*>(p);
+            delete code;
+        };
+
+        static Handle<Value> v8invoke(const Arguments& args) {
+            MethodInfo *code = static_cast<MethodInfo*>(External::Unwrap(args.Data()));
+            return code->invoke(args);
+        }
+
+        Handle<Value> invoke(const Arguments& args);
+    };
+
+    Handle<Value>
+    MethodInfo::invoke(const Arguments& args) {
+        SETUP_PERL_CALL()
+        mXPUSHs(context->v82sv(args.This()));
+        SETUP_PERL_ARGS()
+        int count = call_method(name.c_str(), G_SCALAR | G_EVAL);
+        CONVERT_PERL_RESULT()
     }
 
     class ClosureData
@@ -191,6 +243,9 @@ V8Context::V8Context(int time_limit, bool enable_blessing_, const char* bless_pr
 { }
 
 V8Context::~V8Context() {
+    for (ObjectMap::iterator it = prototypes.begin(); it != prototypes.end(); it++) {
+      it->second.Dispose();
+    }
     context.Dispose();
     while(!V8::IdleNotification()); // force garbage collection
 }
@@ -350,10 +405,65 @@ V8Context::v82sv(Handle<Value> value) {
     return &PL_sv_undef;
 }
 
+void 
+V8Context::fill_prototype(Handle<Object> prototype, HV* stash) {
+    HE *he;
+    while (he = hv_iternext(stash)) {
+        SV *key = HeSVKEY_force(he);
+        Local<String> name = String::New(SvPV_nolen(key));
+
+        if (prototype->Has(name))
+            continue;
+
+        MethodInfo *method = new MethodInfo(SvPV_nolen(key), this);
+
+        void                   *ptr  = static_cast<void*>(method);
+        Local<External>         wrap = External::New(ptr);
+        Persistent<External>    weak = Persistent<External>::New(wrap);
+        Local<FunctionTemplate> tmpl = FunctionTemplate::New(MethodInfo::v8invoke, weak);
+
+        weak.MakeWeak(ptr, MethodInfo::destroy);
+
+        prototype->Set(name, tmpl->GetFunction());
+    }
+}
+
+Handle<Object>
+V8Context::get_prototype(SV *sv) {
+    HV *stash = SvSTASH(SvRV(sv));
+    char *package = HvNAME(stash);
+
+    std::string pkg(package);
+    ObjectMap::iterator it;
+
+    Persistent<Object> prototype;
+
+    it = prototypes.find(pkg);
+    if (it != prototypes.end()) {
+        prototype = it->second;
+    }
+    else {
+        prototype = prototypes[pkg] = Persistent<Object>::New(Object::New());
+
+        if (AV *isa = mro_get_linear_isa(stash)) {
+            for (int i = 0; i <= av_len(isa); i++) {
+                SV **sv = av_fetch(isa, i, 0);
+                HV *stash = gv_stashsv(*sv, 0);
+                fill_prototype(prototype, stash);
+            }
+        }
+    }
+
+    return prototype;
+}
+
 Handle<Value>
 V8Context::rv2v8(SV *sv) {
     SV *ref  = SvRV(sv);
     unsigned t = SvTYPE(ref);
+    if (sv_isobject(sv)) {
+        return blessed2object(sv);
+    }
     if (t == SVt_PVAV) {
         return av2array((AV*)ref);
     }
@@ -371,6 +481,25 @@ V8Context::rv2v8(SV *sv) {
     }
     warn("Unknown reference type in sv2v8()");
     return Undefined();
+}
+
+static void DestroyCallback(Persistent<Value> o, void *sv) {
+    SvREFCNT_dec((SV*)sv);
+    o.Dispose();
+}
+
+Handle<Object>
+V8Context::blessed2object(SV *sv) {
+    Persistent<Object> object(Persistent<Object>::New(Object::New()));
+
+    SvREFCNT_inc(sv);
+
+    object->SetHiddenValue(String::New("perlPtr"), External::Wrap(sv));
+    object->SetPrototype(get_prototype(sv));
+
+    object.MakeWeak(sv, DestroyCallback);
+
+    return object;
 }
 
 Handle<Array>
@@ -422,9 +551,18 @@ V8Context::array2sv(Handle<Array> array) {
 
 SV *
 V8Context::object2sv(Handle<Object> obj) {
+    Local<Value> ptr = obj->GetHiddenValue(String::New("perlPtr"));
+
+    if (!ptr.IsEmpty()) {
+        SV* sv = (SV*)External::Unwrap(ptr);
+        SvREFCNT_inc(sv);
+        return sv;
+    }
+
     if (enable_blessing && obj->Has(String::New("__perlPackage"))) {
         return object2blessed(obj);
     }
+
     HV *hv = newHV();
     Local<Array> properties = obj->GetPropertyNames();
     for (int i = 0; i < properties->Length(); i++) {
@@ -579,3 +717,21 @@ V8Context::object2blessed(Handle<Object> obj) {
     return rv;
 }
 
+bool
+V8Context::idle_notification() {
+    /*
+    HeapStatistics hs;
+    V8::GetHeapStatistics(&hs);
+    L(
+        "%d %d %d\n", 
+        hs.total_heap_size(), 
+        hs.total_heap_size_executable(), 
+        hs.used_heap_size()
+    );
+    */
+    return V8::IdleNotification();
+}
+
+int
+V8Context::adjust_amount_of_external_allocated_memory(int change_in_bytes) {
+    return V8::AdjustAmountOfExternalAllocatedMemory(change_in_bytes);}
