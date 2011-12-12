@@ -73,6 +73,9 @@ is $context->eval('test2')->($c1, $c2), 2;
 
 is $context->eval('(function(c) { return c })')->($c1), $c1;
 
+$context->set_flags_from_string("--expose-gc");
+#$context->set_flags_from_string("--trace-gc");
+
 {
     my $destroyed;
     {
