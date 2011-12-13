@@ -12,4 +12,10 @@ my $context = JavaScript::V8::Context->new;
 is $context->eval('(function(v) { return v })')->(1000000000000), 1000000000000, 'big numbers are ok';
 is $context->eval('(function(v) { return v })')->(2.34234), 2.34234, 'real numbers are ok';
 
+is $context->eval('(function(v) { return v + 2; })')->(2), 4;
+is $context->eval('(function(v) { return v + 2; })')->('2'), '22', 'string converts into a string';
+
+my $val = '3'; $val > 3;
+is $context->eval('(function(v) { return v + 2; })')->($val), '32', 'string conversion after numeric comparison';
+
 done_testing;
