@@ -32,12 +32,16 @@ Counter.prototype.copyFrom = function(otherCounter) {
     this.set(otherCounter.get());
 }
 
+Counter.prototype.error = function() {
+    throw 'SomeError';
+}
+
 Counter.prototype.__perlPackage = "Counter";
 
 new Counter;
 END
 
-my $c1 = $context->eval($COUNTER_SRC);
+my $c1 = $context->eval($COUNTER_SRC, 'counter.js');
 
 isa_ok $c1, 'JS::Counter';
 is $c1->get, 1, 'initial value';
@@ -50,6 +54,9 @@ is $c1->get, 3, 'method calls work';
 $c1->set('8');
 
 is $c1->get, 8, 'method with an argument';
+
+eval { $c1->error };
+like $@, qr{SomeError.*at counter\.js:\d+}, 'js method error propagates to perl';
 
 {
     my $c2 = $context->eval('new Counter');

@@ -13,6 +13,23 @@
 using namespace v8;
 using namespace std;
 
+void set_perl_error(const TryCatch& try_catch) {
+    Handle<Message> msg = try_catch.Message();
+
+    char message[1024];
+    snprintf(
+        message,
+        1024,
+        "%s at %s:%d",
+        *(String::Utf8Value(try_catch.Exception())),
+        !msg.IsEmpty() ? *(String::AsciiValue(msg->GetScriptResourceName())) : "EVAL",
+        !msg.IsEmpty() ? msg->GetLineNumber() : 0
+    );
+
+    sv_setpv(ERRSV, message);
+    sv_utf8_upgrade(ERRSV);
+}
+
 // Internally-used wrapper around coderefs
 static IV
 calculate_size(SV *sv) {
@@ -307,26 +324,25 @@ private:
 };
 
 SV*
-V8Context::eval(SV* source) {
+V8Context::eval(SV* source, SV* origin) {
     HandleScope handle_scope;
     TryCatch try_catch;
     Context::Scope context_scope(context);
-    Handle<String> source_str(sv2v8str(source));
-    Handle<Script> script = Script::Compile(source_str);
+
+    Handle<Script> script = Script::Compile(
+        sv2v8str(source),
+        origin ? sv2v8str(origin) : String::New("EVAL")
+    );
 
     if (try_catch.HasCaught()) {
-        Handle<Value> exception = try_catch.Exception();
-        String::Utf8Value exception_str(exception);
-        sv_setpvn(ERRSV, *exception_str, exception_str.length());
+        set_perl_error(try_catch);
         return &PL_sv_undef;
     } else {
         thread_canceller canceller(time_limit_);
         Handle<Value> val = script->Run();
 
         if (val.IsEmpty()) {
-            Handle<Value> exception = try_catch.Exception();
-            String::AsciiValue exception_str(exception);
-            sv_setpvn(ERRSV, *exception_str, exception_str.length());
+            set_perl_error(try_catch);
             return &PL_sv_undef;
         } else {
             sv_setsv(ERRSV,&PL_sv_undef);
@@ -652,9 +668,7 @@ XS(v8closure) {
 
         Handle<Value> result = data->function->Call(ctx->Global(), items, argv);
         if (try_catch.HasCaught()) {
-            Local<Value> e = try_catch.Exception();
-            String::Utf8Value str(e);
-            sv_setpvn(ERRSV, *str, str.length());
+            set_perl_error(try_catch);
             die = true;
         }
         else {
@@ -697,9 +711,7 @@ XS(v8method) {
         Handle<Value> result = data->function->Call(This->object->ToObject(), items - 1, argv);
 
         if (try_catch.HasCaught()) {
-            Local<Value> e = try_catch.Exception();
-            String::Utf8Value str(e);
-            sv_setpvn(ERRSV, *str, str.length());
+            set_perl_error(try_catch);
             die = true;
         }
         else {

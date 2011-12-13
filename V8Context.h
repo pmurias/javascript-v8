@@ -25,7 +25,7 @@ class V8Context {
         ~V8Context();
 
         void bind(const char*, SV*);
-        SV* eval(SV*);
+        SV* eval(SV* source, SV* origin = NULL);
         bool idle_notification();
         int adjust_amount_of_external_allocated_memory(int bytes);
         void set_flags_from_string(char *str);
