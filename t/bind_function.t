@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-use Test::More tests => 7;
+use Test::More;
 use JavaScript::V8;
 use strict;
 use warnings;
@@ -38,3 +38,7 @@ is $context->eval("y")->(3), 6, "Roundtrip";
 
 $context->bind(z => { z => $context->eval("y") });
 is $context->eval("z")->{z}->(3), 6, "Roundtrip via object";
+
+is $context->eval('(function(x) { return x; })')->(undef), undef, 'undef roundtrip';
+
+done_testing;
