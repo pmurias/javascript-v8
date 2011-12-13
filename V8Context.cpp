@@ -693,17 +693,17 @@ my_gv_setsv(pTHX_ GV* const gv, SV* const sv){
         }
 
 #define CONVERT_V8_RESULT() \
-    if (try_catch.HasCaught()) { \
-        set_perl_error(try_catch); \
-        die = true; \
+        if (try_catch.HasCaught()) { \
+            set_perl_error(try_catch); \
+            die = true; \
+        } \
+        else { \
+            ST(0) = sv_2mortal(self->v82sv(result)); \
+        } \
     } \
-    else { \
-        ST(0) = sv_2mortal(self->v82sv(result)); \
-    } \
-} \
 \
-if (die) \
-    croak(NULL); \
+    if (die) \
+        croak(NULL); \
 \
 XSRETURN(1);
 
