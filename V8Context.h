@@ -35,15 +35,18 @@ class V8Context {
 
         Persistent<Context> context;
     private:
-        Handle<Value>    rv2v8(SV*);
-        Handle<Array>    av2array(AV*);
-        Handle<Object>   hv2object(HV*);
+        Handle<Value>    sv2v8(SV*, Handle<Object> seen);
+        SV*              v82sv(Handle<Value>, HV* seen);
+
+        Handle<Value>    rv2v8(SV*, Handle<Object> seen);
+        Handle<Array>    av2array(AV*, Handle<Object> seen, long ptr);
+        Handle<Object>   hv2object(HV*, Handle<Object> seen, long ptr);
         Handle<Function> cv2function(CV*);
         Handle<String>   sv2v8str(SV* sv);
         Handle<Object>   blessed2object(SV *sv);
 
-        SV* array2sv(Handle<Array>);
-        SV* object2sv(Handle<Object>);
+        SV* array2sv(Handle<Array>, HV* seen, const string& hash);
+        SV* object2sv(Handle<Object>, HV* seen, const string& hash);
         SV* object2blessed(Handle<Object>);
         SV* function2sv(Handle<Function>);
 

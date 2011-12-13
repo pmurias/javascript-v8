@@ -336,9 +336,9 @@ V8Context::eval(SV* source) {
 }
 
 Handle<Value>
-V8Context::sv2v8(SV *sv) {
+V8Context::sv2v8(SV *sv, Handle<Object> seen) {
     if (SvROK(sv))
-        return rv2v8(sv);
+        return rv2v8(sv, seen);
     if (SvPOK(sv)) {
         // Upgrade string to UTF-8 if needed
         char *utf8 = SvPVutf8_nolen(sv);
@@ -355,6 +355,11 @@ V8Context::sv2v8(SV *sv) {
     return Undefined();
 }
 
+Handle<Value>
+V8Context::sv2v8(SV *sv) {
+    return sv2v8(sv, Object::New());
+}
+
 Handle<String> V8Context::sv2v8str(SV* sv)
 {
     // Upgrade string to UTF-8 if needed
@@ -363,7 +368,7 @@ Handle<String> V8Context::sv2v8str(SV* sv)
 }
 
 SV *
-V8Context::v82sv(Handle<Value> value) {
+V8Context::v82sv(Handle<Value> value, HV* seen) {
     if (value->IsUndefined())
         return &PL_sv_undef;
 
@@ -386,23 +391,41 @@ V8Context::v82sv(Handle<Value> value) {
         return sv;
     }
 
-    if (value->IsArray()) {
-        Handle<Array> array = Handle<Array>::Cast(value);
-        return array2sv(array);
-    }
-
     if (value->IsFunction()) {
         Handle<Function> fn = Handle<Function>::Cast(value);
         return function2sv(fn);
     }
 
-    if (value->IsObject()) {
-        Handle<Object> object = Handle<Object>::Cast(value);
-        return object2sv(object);
+    if (value->IsArray() || value->IsObject()) {
+        string hash(*String::AsciiValue(Number::New(value->ToObject()->GetIdentityHash())->ToString()));
+
+        if (SV **cached = hv_fetch(seen, hash.c_str(), hash.length(), NULL)) {
+            SvREFCNT_inc(*cached);
+            return *cached;
+        }
+
+        if (value->IsArray()) {
+            Handle<Array> array = Handle<Array>::Cast(value);
+            return array2sv(array, seen, hash);
+        }
+
+        if (value->IsObject()) {
+            Handle<Object> object = Handle<Object>::Cast(value);
+            return object2sv(object, seen, hash);
+        }
     }
 
     warn("Unknown v8 value in v82sv");
     return &PL_sv_undef;
+}
+
+SV *
+V8Context::v82sv(Handle<Value> value) {
+    HV* seen = newHV();
+    SV* val = v82sv(value, seen);
+    SvREFCNT_dec(seen);
+
+    return val;
 }
 
 void 
@@ -458,17 +481,23 @@ V8Context::get_prototype(SV *sv) {
 }
 
 Handle<Value>
-V8Context::rv2v8(SV *sv) {
+V8Context::rv2v8(SV *sv, Handle<Object> seen) {
     SV *ref  = SvRV(sv);
+    int ptr = PTR2IV(ref);
+
+    Handle<Value> cached = seen->Get(ptr);
+    if (!cached.IsEmpty() && !cached->IsUndefined())
+        return cached;
+
     unsigned t = SvTYPE(ref);
     if (sv_isobject(sv)) {
         return blessed2object(sv);
     }
     if (t == SVt_PVAV) {
-        return av2array((AV*)ref);
+        return av2array((AV*)ref, seen, ptr);
     }
     if (t == SVt_PVHV) {
-        return hv2object((HV*)ref);
+        return hv2object((HV*)ref, seen, ptr);
     }
     if (t == SVt_PVCV) {
         return cv2function((CV*)ref);
@@ -503,25 +532,27 @@ V8Context::blessed2object(SV *sv) {
 }
 
 Handle<Array>
-V8Context::av2array(AV *av) {
+V8Context::av2array(AV *av, Handle<Object> seen, long ptr) {
     I32 i, len = av_len(av) + 1;
     Handle<Array> array = Array::New(len);
+    seen->Set(ptr, array);
     for (i = 0; i < len; i++) {
-        array->Set(Integer::New(i), sv2v8(*av_fetch(av, i, 0)));
+        array->Set(Integer::New(i), sv2v8(*av_fetch(av, i, 0), seen));
     }
     return array;
 }
 
 Handle<Object>
-V8Context::hv2object(HV *hv) {
+V8Context::hv2object(HV *hv, Handle<Object> seen, long ptr) {
     I32 len;
     char *key;
     SV *val;
 
     hv_iterinit(hv);
     Handle<Object> object = Object::New();
+    seen->Set(ptr, object);
     while (val = hv_iternextsv(hv, &key, &len)) {
-        object->Set(String::New(key, len), sv2v8(val));
+        object->Set(String::New(key, len), sv2v8(val, seen));
     }
     return object;
 }
@@ -540,17 +571,21 @@ V8Context::cv2function(CV *cv) {
 }
 
 SV*
-V8Context::array2sv(Handle<Array> array) {
+V8Context::array2sv(Handle<Array> array, HV* seen, const string& hash) {
     AV *av = newAV();
+    SV *rv = newRV_noinc((SV*)av);
+    SvREFCNT_inc(rv);
+    hv_store(seen, hash.c_str(), hash.length(), rv, NULL);
+
     for (int i = 0; i < array->Length(); i++) {
         Handle<Value> elementVal = array->Get( Integer::New( i ) );
-        av_push( av, v82sv( elementVal ) );
+        av_push(av, v82sv(elementVal, seen));
     }
-    return newRV_noinc((SV *) av);
+    return rv;
 }
 
 SV *
-V8Context::object2sv(Handle<Object> obj) {
+V8Context::object2sv(Handle<Object> obj, HV* seen, const string& hash) {
     Local<Value> ptr = obj->GetHiddenValue(String::New("perlPtr"));
 
     if (!ptr.IsEmpty()) {
@@ -564,6 +599,10 @@ V8Context::object2sv(Handle<Object> obj) {
     }
 
     HV *hv = newHV();
+    SV *rv = newRV_noinc((SV*)hv);
+    SvREFCNT_inc(rv);
+    hv_store(seen, hash.c_str(), hash.length(), rv, NULL);
+
     Local<Array> properties = obj->GetPropertyNames();
     for (int i = 0; i < properties->Length(); i++) {
         Local<Integer> propertyIndex = Integer::New( i );
@@ -571,9 +610,9 @@ V8Context::object2sv(Handle<Object> obj) {
         String::Utf8Value propertyNameUTF8( propertyName );
 
         Local<Value> propertyValue = obj->Get( propertyName );
-        hv_store(hv, *propertyNameUTF8, 0 - propertyNameUTF8.length(), v82sv( propertyValue ), 0 );
+        hv_store(hv, *propertyNameUTF8, 0 - propertyNameUTF8.length(), v82sv(propertyValue, seen), 0);
     }
-    return newRV_noinc((SV*)hv);
+    return rv;
 }
 
 static void
