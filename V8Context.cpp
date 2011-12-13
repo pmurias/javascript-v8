@@ -77,16 +77,17 @@ calculate_size(SV *sv) {
     */
 }
 
-#define SETUP_PERL_CALL() \
+#define SETUP_PERL_CALL(PUSHSELF) \
     int len = args.Length(); \
 \
     dSP; \
     ENTER; \
     SAVETMPS; \
 \
-    PUSHMARK(SP);
-    
-#define SETUP_PERL_ARGS() \
+    PUSHMARK(SP); \
+\
+    PUSHSELF; \
+\
     for (int i = 0; i < len; i++) { \
         SV *arg = context->v82sv(args[i]); \
         mXPUSHs(arg); \
@@ -150,7 +151,6 @@ namespace
     CVInfo::invoke(const Arguments& args)
     {
         SETUP_PERL_CALL();
-        SETUP_PERL_ARGS();
         int count = call_sv(ref, G_SCALAR);
         CONVERT_PERL_RESULT();
     }
@@ -189,9 +189,7 @@ namespace
 
     Handle<Value>
     MethodInfo::invoke(const Arguments& args) {
-        SETUP_PERL_CALL()
-        mXPUSHs(context->v82sv(args.This()));
-        SETUP_PERL_ARGS()
+        SETUP_PERL_CALL(mXPUSHs(context->v82sv(args.This())))
         int count = call_method(name.c_str(), G_SCALAR | G_EVAL);
         CONVERT_PERL_RESULT()
     }
@@ -668,87 +666,58 @@ my_gv_setsv(pTHX_ GV* const gv, SV* const sv){
     LEAVE;
 }
 
-XS(v8closure) {
 #ifdef dVAR
-    dVAR;
+    #define DVAR dVAR;
 #endif
-    dXSARGS;
 
-    bool die = false;
-
-    {
-        /* We have to do all this inside a block so that all the proper
-         * destuctors are called if we need to croak. If we just croak in the
-         * middle of the block, v8 will segfault at program exit. */
-        TryCatch        try_catch;
-        HandleScope     scope;
-        ClosureData    *data = ClosureData::for_cv(cv);
-        V8Context      *self = data->context;
-        Handle<Context> ctx  = self->context;
-        Context::Scope  context_scope(ctx);
-        Handle<Value>   argv[items];
-
-        for (I32 i = 0; i < items; i++) {
-            argv[i] = self->sv2v8(ST(i));
+#define SETUP_V8_CALL(ARGS_OFFSET) \
+    DVAR \
+    dXSARGS; \
+\
+    bool die = false; \
+\
+    { \
+        /* We have to do all this inside a block so that all the proper \
+         * destuctors are called if we need to croak. If we just croak in the \
+         * middle of the block, v8 will segfault at program exit. */ \
+        TryCatch        try_catch; \
+        HandleScope     scope; \
+        ClosureData    *data = ClosureData::for_cv(cv); \
+        V8Context      *self = data->context; \
+        Handle<Context> ctx  = self->context; \
+        Context::Scope  context_scope(ctx); \
+        Handle<Value>   argv[items - ARGS_OFFSET]; \
+\
+        for (I32 i = ARGS_OFFSET; i < items; i++) { \
+            argv[i - ARGS_OFFSET] = self->sv2v8(ST(i)); \
         }
 
-        Handle<Value> result = data->function->Call(ctx->Global(), items, argv);
-        if (try_catch.HasCaught()) {
-            set_perl_error(try_catch);
-            die = true;
-        }
-        else {
-            ST(0) = sv_2mortal(self->v82sv(result));
-        }
-    }
+#define CONVERT_V8_RESULT() \
+    if (try_catch.HasCaught()) { \
+        set_perl_error(try_catch); \
+        die = true; \
+    } \
+    else { \
+        ST(0) = sv_2mortal(self->v82sv(result)); \
+    } \
+} \
+\
+if (die) \
+    croak(NULL); \
+\
+XSRETURN(1);
 
-    if (die)
-        croak(NULL);
-
-    XSRETURN(1);
+XS(v8closure) {
+    SETUP_V8_CALL(0)
+    Handle<Value> result = data->function->Call(ctx->Global(), items, argv);
+    CONVERT_V8_RESULT()
 }
 
 XS(v8method) {
-#ifdef dVAR
-    dVAR;
-#endif
-    dXSARGS;
-
-    bool die = false;
-
-    {
-        /* We have to do all this inside a block so that all the proper
-         * destuctors are called if we need to croak. If we just croak in the
-         * middle of the block, v8 will segfault at program exit. */
-        TryCatch        try_catch;
-        HandleScope     scope;
-        ClosureData    *data = ClosureData::for_cv(cv);
-        V8Context      *self = data->context;
-        Handle<Context> ctx  = self->context;
-        Context::Scope  context_scope(ctx);
-        Handle<Value>   argv[items - 1];
-
-        for (I32 i = 1; i < items; i++) {
-            argv[i - 1] = self->sv2v8(ST(i));
-        }
-
-        ObjectData *This = (ObjectData *)SvIV((SV*)SvRV(ST(0)));
-
-        Handle<Value> result = data->function->Call(This->object->ToObject(), items - 1, argv);
-
-        if (try_catch.HasCaught()) {
-            set_perl_error(try_catch);
-            die = true;
-        }
-        else {
-            ST(0) = sv_2mortal(self->v82sv(result));
-        }
-    }
-
-    if (die)
-        croak(NULL);
-
-    XSRETURN(1);
+    SETUP_V8_CALL(1)
+    ObjectData *This = (ObjectData *)SvIV((SV*)SvRV(ST(0)));
+    Handle<Value> result = data->function->Call(This->object->ToObject(), items - 1, argv);
+    CONVERT_V8_RESULT();
 }
 
 SV*
