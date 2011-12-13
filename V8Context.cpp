@@ -30,6 +30,23 @@ void set_perl_error(const TryCatch& try_catch) {
     sv_utf8_upgrade(ERRSV);
 }
 
+Handle<Value>
+check_perl_error() {
+    if (!SvOK(ERRSV))
+        return Handle<Value>();
+
+    const char *err = SvPV_nolen(ERRSV);
+
+    if (err && strlen(err) > 0) {
+        Handle<String> error = String::New(err, strlen(err) - 1); // no newline
+        sv_setsv(ERRSV, &PL_sv_no);
+        Handle<Value> v = ThrowException(Exception::Error(error));
+        return v;
+    }
+
+    return Handle<Value>();
+}
+
 // Internally-used wrapper around coderefs
 static IV
 calculate_size(SV *sv) {
@@ -77,6 +94,13 @@ calculate_size(SV *sv) {
     PUTBACK;
 
 #define CONVERT_PERL_RESULT() \
+    Handle<Value> error = check_perl_error(); \
+\
+    if (!error.IsEmpty()) { \
+        FREETMPS; \
+        LEAVE; \
+        return error; \
+    } \
     SPAGAIN; \
 \
     Handle<Value> v = context->sv2v8(POPs); \

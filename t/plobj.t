@@ -45,6 +45,10 @@ sub copy_from {
     $self->set($other_counter->get);
 }
 
+sub error {
+    die 'SomePerlError';
+}
+
 sub DESTROY {
     my $self = shift;
     ($self->{on_destroy} || sub {})->();
@@ -60,6 +64,19 @@ function test2(counter1, counter2) {
     counter1.copy_from(counter2);
     return counter1.get();
 }
+function testErrorWrapped(counter) {
+    try {
+        counter.error();
+    }
+    catch(e) {
+
+    }
+    return 222;
+}
+function testError(counter) {
+    counter.error();
+    return 111;
+}
 END
 
 my $c1 = Counter->new;
@@ -72,6 +89,14 @@ $c2->set(2);
 is $context->eval('test2')->($c1, $c2), 2;
 
 is $context->eval('(function(c) { return c })')->($c1), $c1;
+
+my $res1 = eval { $context->eval('testError')->($c1) };
+ok !$res1, 'error was not caught - no value returned';
+like $@, qr{SomePerlError}, 'proper error message';
+
+my $res2 = $context->eval('testErrorWrapped')->($c1);
+is $res2, 222, 'error was caught and execution countinued gracefully';
+ok !$@, 'no error message';
 
 $context->set_flags_from_string("--expose-gc");
 #$context->set_flags_from_string("--trace-gc");
