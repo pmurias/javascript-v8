@@ -30,6 +30,7 @@ my %mm = (
     TYPEMAPS          => ['perlobject.map'],
     CC                => $CC,
     LD                => '$(CC)',
+    depend            => { 'WithV8Context.c' => 'JavaScript-V8-Context.xsp' },
 );
 
 if(ExtUtils::MakeMaker->can("VERSION") && ExtUtils::MakeMaker->VERSION(6.46)) {
