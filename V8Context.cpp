@@ -366,7 +366,7 @@ V8Context::sv2v8(SV *sv, Handle<Object> seen) {
         return Integer::New(SvIV(sv));
     if (SvNOK(sv))
         return Number::New(SvNV(sv));
-    if (&PL_sv_undef == sv)
+    if (!SvOK(sv))
         return Undefined();
  
     warn("Unknown sv type in sv2v8");

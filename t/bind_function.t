@@ -41,4 +41,8 @@ is $context->eval("z")->{z}->(3), 6, "Roundtrip via object";
 
 is $context->eval('(function(x) { return x; })')->(undef), undef, 'undef roundtrip';
 
+my $zzz = 1;
+undef $zzz;
+is $context->eval('(function(x) { return x; })')->($zzz), undef, 'undef roundtrip 2';
+
 done_testing;
