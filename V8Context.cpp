@@ -382,10 +382,10 @@ V8Context::sv2v8(SV *sv, Handle<Object> seen) {
         char *utf8 = SvPVutf8_nolen(sv);
         return String::New(utf8, SvCUR(sv));
     }
-    if (SvIOK_UV(sv))
-        return Uint32::New(SvUV(sv));
-    if (SvIOK(sv))
-        return Integer::New(SvIV(sv));
+    if (SvIOK(sv)) {
+        IV v = SvIV(sv);
+        return (v >> 32) > 0 ? Number::New(v) : (Handle<Number>)Integer::New(v);
+    }
     if (SvNOK(sv))
         return Number::New(SvNV(sv));
     if (!SvOK(sv))
