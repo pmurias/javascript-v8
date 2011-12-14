@@ -707,6 +707,7 @@ my_gv_setsv(pTHX_ GV* const gv, SV* const sv){
     dXSARGS; \
 \
     bool die = false; \
+    int count = 1; \
 \
     { \
         /* We have to do all this inside a block so that all the proper \
@@ -725,13 +726,24 @@ my_gv_setsv(pTHX_ GV* const gv, SV* const sv){
             argv[i - ARGS_OFFSET] = self->sv2v8(ST(i)); \
         }
 
-#define CONVERT_V8_RESULT() \
+#define CONVERT_V8_RESULT(POP) \
         if (try_catch.HasCaught()) { \
             set_perl_error(try_catch); \
             die = true; \
         } \
         else { \
-            ST(0) = sv_2mortal(self->v82sv(result)); \
+            if (GIMME_V == G_ARRAY && result->IsArray()) { \
+                Handle<Array> array = Handle<Array>::Cast(result); \
+                count = array->Length(); \
+                POP; \
+                EXTEND(SP, count); \
+                for (int i = 0; i < count; i++) { \
+                    mXPUSHs(self->v82sv(array->Get(Integer::New(i)))); \
+                } \
+            } \
+            else { \
+                ST(0) = sv_2mortal(self->v82sv(result)); \
+            } \
         } \
         } \
         else {\
@@ -744,7 +756,7 @@ my_gv_setsv(pTHX_ GV* const gv, SV* const sv){
     if (die) \
         croak(NULL); \
 \
-XSRETURN(1);
+XSRETURN(count);
 
 XS(v8closure) {
     SETUP_V8_CALL(0)
@@ -756,7 +768,7 @@ XS(v8method) {
     SETUP_V8_CALL(1)
     V8ObjectData* This = (V8ObjectData*)SvIV((SV*)SvRV(ST(0)));
     Handle<Value> result = Handle<Function>::Cast(data->object)->Call(This->object, items - 1, argv);
-    CONVERT_V8_RESULT();
+    CONVERT_V8_RESULT(POPs);
 }
 
 SV*

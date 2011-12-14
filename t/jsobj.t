@@ -2,6 +2,7 @@
 
 use Test::More;
 use JavaScript::V8;
+use Data::Dumper;
 
 use utf8;
 use strict;
@@ -14,9 +15,11 @@ $context->bind( warn => sub { warn(@_) });
 my $COUNTER_SRC = <<'END';
 function Counter() {
     this.val = 1;
+    this.prev = [];
 }
 
 Counter.prototype.inc = function() {
+    this.prev.push(this.val);
     this.val++;
 }
 
@@ -25,6 +28,7 @@ Counter.prototype.get = function() {
 }
 
 Counter.prototype.set = function(newVal) {
+    this.prev.push(this.val);
     this.val = newVal;
 }
 
@@ -42,6 +46,10 @@ Counter.prototype.returnArg = function(v) {
 
 Counter.prototype.error = function() {
     throw 'SomeError';
+}
+
+Counter.prototype.previousValues = function() {
+    return this.prev;
 }
 
 Counter.prototype.__perlPackage = "Counter";
@@ -115,6 +123,15 @@ like $@, qr{SomeError.*at counter\.js:\d+}, 'js method error propagates to perl'
 
     eval { $c->get };
     like $@, qr{context is no more}, 'object gracefully stops working if it outlives its context';
+}
+
+{
+    my $context = JavaScript::V8::Context->new( enable_blessing => 1 );
+    
+    $context->eval($COUNTER_SRC);
+
+    my $c = $context->eval('var c = new Counter(); c.set(77); c.inc(); c.inc(); c');
+    is_deeply [$c->previousValues], [1, 77, 78], 'method in list context';
 }
 
 done_testing;

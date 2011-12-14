@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-use Test::More tests => 13 + 2*1000;
+use Test::More tests => 14 + 2*1000;
 use JavaScript::V8;
 use strict;
 use warnings;
@@ -47,6 +47,8 @@ my $context = JavaScript::V8::Context->new();
     my %expected = ( "\x{a3}" => { bar => { boo => "far\x{a3}" } } );
     is_deeply($context->eval('x={"\u00a3":{bar:{boo:"far\u00a3"}}}'), \%expected);die $@ if $@;
 };
+
+is_deeply [ $context->eval('(function() { return [1,2,3]; })')->() ], [1,2,3], 'array returns as a list in list context';
 
 for(1 .. 1000) {
   my $code = $context->eval('function x() { return 2+2 }; x');
