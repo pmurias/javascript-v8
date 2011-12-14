@@ -15,7 +15,10 @@ is $context->eval('(function(v) { return v })')->(2.34234), 2.34234, 'real numbe
 is $context->eval('(function(v) { return v + 2; })')->(2), 4;
 is $context->eval('(function(v) { return v + 2; })')->('2'), '22', 'string converts into a string';
 
-my $val = '3'; $val > 3;
+my $val = '3'; 
+if ($val > 3) {
+
+}
 is $context->eval('(function(v) { return v + 2; })')->($val), '32', 'string conversion after numeric comparison';
 
 done_testing;
