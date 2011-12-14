@@ -8,10 +8,17 @@
 #include <pthread.h>
 #include <time.h>
 
+#undef do_open
+#undef do_close
+
+#include <sstream>
+
 #define L(...) fprintf(stderr, ##__VA_ARGS__)
 
 using namespace v8;
 using namespace std;
+
+int V8Context::number = 0;
 
 void set_perl_error(const TryCatch& try_catch) {
     Handle<Message> msg = try_catch.Message();
@@ -279,7 +286,9 @@ V8Context::V8Context(int time_limit, bool enable_blessing_, const char* bless_pr
       bless_prefix(bless_prefix_),
       enable_blessing(enable_blessing_),
       context(Context::New())
-{ }
+{ 
+    number++;    
+}
 
 V8Context::~V8Context() {
     for (ObjectMap::iterator it = prototypes.begin(); it != prototypes.end(); it++) {
@@ -727,10 +736,20 @@ V8Context::function2sv(Handle<Function> fn) {
     return newRV_noinc((SV*)code);
 }
 
+const string
+V8Context::get_package_name(const string& package) {
+    std::stringstream ss;
+    ss << bless_prefix << package << "::N" << number;
+    return ss.str();
+}
+
 SV*
 V8Context::object2blessed(Handle<Object> obj) {
     Local<Object> prototype = obj->GetPrototype()->ToObject();
-    string package = bless_prefix + string(*String::AsciiValue(obj->Get(String::New("__perlPackage"))->ToString()));
+
+    string package = get_package_name(
+        *String::AsciiValue(obj->Get(String::New("__perlPackage"))->ToString())
+    );
 
     HV *stash = gv_stashpv(package.c_str(), 0);
 

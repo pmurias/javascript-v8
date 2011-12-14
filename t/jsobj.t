@@ -43,7 +43,7 @@ END
 
 my $c1 = $context->eval($COUNTER_SRC, 'counter.js');
 
-isa_ok $c1, 'JS::Counter';
+isa_ok $c1, 'JS::Counter::N1';
 is $c1->get, 1, 'initial value';
 
 $c1->inc;
@@ -73,7 +73,7 @@ like $@, qr{SomeError.*at counter\.js:\d+}, 'js method error propagates to perl'
     $context->eval($COUNTER_SRC);
     my $c = $context->eval('new Counter()');
 
-    isa_ok $c, 'Counter', 'enable_blessing option works';
+    isa_ok $c, 'Counter::N2', 'enable_blessing option works';
 }
 
 {
@@ -82,7 +82,7 @@ like $@, qr{SomeError.*at counter\.js:\d+}, 'js method error propagates to perl'
     $context->eval($COUNTER_SRC);
     my $c = $context->eval('var c = new Counter(); c.set(77); c');
 
-    ok !eval { $c->isa('Counter') }, 'no blessing without enable_blessing or bless_prefix options';
+    ok !eval { $c->isa('Counter::N3') }, 'no blessing without enable_blessing or bless_prefix options';
     is $c->{val}, 77, 'no blessing, object converted as data';
 }
 
