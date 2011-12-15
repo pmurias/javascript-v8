@@ -779,6 +779,8 @@ V8Context::object2blessed(Handle<Object> obj) {
     SV *rv = sv_setref_pv(newSV(0), package.c_str(), (void*)data);
     data->set_sv(SvRV(rv));
 
+    obj->SetHiddenValue(String::New("perlPtr"), External::Wrap(rv));
+
     return rv;
 }
 
