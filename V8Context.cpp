@@ -735,10 +735,9 @@ my_gv_setsv(pTHX_ GV* const gv, SV* const sv){
             if (GIMME_V == G_ARRAY && result->IsArray()) { \
                 Handle<Array> array = Handle<Array>::Cast(result); \
                 count = array->Length(); \
-                POP; \
-                EXTEND(SP, count); \
+                EXTEND(SP, count - items); \
                 for (int i = 0; i < count; i++) { \
-                    mXPUSHs(self->v82sv(array->Get(Integer::New(i)))); \
+                    ST(i) = sv_2mortal(self->v82sv(array->Get(Integer::New(i)))); \
                 } \
             } \
             else { \
