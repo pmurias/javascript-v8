@@ -384,7 +384,7 @@ V8Context::eval(SV* source, SV* origin) {
 }
 
 Handle<Value>
-V8Context::sv2v8(SV *sv, Handle<Object> seen) {
+V8Context::sv2v8(SV *sv, HandleMap& seen) {
     if (SvROK(sv))
         return rv2v8(sv, seen);
     if (SvPOK(sv)) {
@@ -407,7 +407,8 @@ V8Context::sv2v8(SV *sv, Handle<Object> seen) {
 
 Handle<Value>
 V8Context::sv2v8(SV *sv) {
-    return sv2v8(sv, Object::New());
+    HandleMap seen;
+    return sv2v8(sv, seen);
 }
 
 Handle<String> V8Context::sv2v8str(SV* sv)
@@ -418,7 +419,7 @@ Handle<String> V8Context::sv2v8str(SV* sv)
 }
 
 SV *
-V8Context::v82sv(Handle<Value> value, HV* seen) {
+V8Context::v82sv(Handle<Value> value, SvMap& seen) {
     if (value->IsUndefined())
         return &PL_sv_undef;
 
@@ -447,11 +448,14 @@ V8Context::v82sv(Handle<Value> value, HV* seen) {
     }
 
     if (value->IsArray() || value->IsObject()) {
-        string hash(*String::AsciiValue(Number::New(value->ToObject()->GetIdentityHash())->ToString()));
+        int hash = value->ToObject()->GetIdentityHash();
 
-        if (SV **cached = hv_fetch(seen, hash.c_str(), hash.length(), NULL)) {
-            SvREFCNT_inc(*cached);
-            return *cached;
+        SvMap::iterator it = seen.find(hash);
+        
+        if (it != seen.end()) {
+            SV* cached = it->second;
+            SvREFCNT_inc(cached);
+            return cached;
         }
 
         if (value->IsArray()) {
@@ -471,11 +475,8 @@ V8Context::v82sv(Handle<Value> value, HV* seen) {
 
 SV *
 V8Context::v82sv(Handle<Value> value) {
-    HV* seen = newHV();
-    SV* val = v82sv(value, seen);
-    SvREFCNT_dec(seen);
-
-    return val;
+    SvMap seen;
+    return v82sv(value, seen);
 }
 
 void 
@@ -531,13 +532,16 @@ V8Context::get_prototype(SV *sv) {
 }
 
 Handle<Value>
-V8Context::rv2v8(SV *sv, Handle<Object> seen) {
+V8Context::rv2v8(SV *sv, HandleMap& seen) {
     SV *ref  = SvRV(sv);
     int ptr = PTR2IV(ref);
 
-    Handle<Value> cached = seen->Get(ptr);
-    if (!cached.IsEmpty() && !cached->IsUndefined())
+    HandleMap::iterator it = seen.find(ptr);
+
+    if (it != seen.end()) {
+        Handle<Value> cached = it->second;
         return cached;
+    }
 
     unsigned t = SvTYPE(ref);
     if (sv_isobject(sv)) {
@@ -582,10 +586,10 @@ V8Context::blessed2object(SV *sv) {
 }
 
 Handle<Array>
-V8Context::av2array(AV *av, Handle<Object> seen, long ptr) {
+V8Context::av2array(AV *av, HandleMap& seen, long ptr) {
     I32 i, len = av_len(av) + 1;
     Handle<Array> array = Array::New(len);
-    seen->Set(ptr, array);
+    seen[ptr] = array;
     for (i = 0; i < len; i++) {
         array->Set(Integer::New(i), sv2v8(*av_fetch(av, i, 0), seen));
     }
@@ -593,14 +597,14 @@ V8Context::av2array(AV *av, Handle<Object> seen, long ptr) {
 }
 
 Handle<Object>
-V8Context::hv2object(HV *hv, Handle<Object> seen, long ptr) {
+V8Context::hv2object(HV *hv, HandleMap& seen, long ptr) {
     I32 len;
     char *key;
     SV *val;
 
     hv_iterinit(hv);
     Handle<Object> object = Object::New();
-    seen->Set(ptr, object);
+    seen[ptr] = object;
     while (val = hv_iternextsv(hv, &key, &len)) {
         object->Set(String::New(key, len), sv2v8(val, seen));
     }
@@ -621,11 +625,11 @@ V8Context::cv2function(CV *cv) {
 }
 
 SV*
-V8Context::array2sv(Handle<Array> array, HV* seen, const string& hash) {
+V8Context::array2sv(Handle<Array> array, SvMap& seen, int hash) {
     AV *av = newAV();
     SV *rv = newRV_noinc((SV*)av);
     SvREFCNT_inc(rv);
-    hv_store(seen, hash.c_str(), hash.length(), rv, NULL);
+    seen[hash] = rv;
 
     for (int i = 0; i < array->Length(); i++) {
         Handle<Value> elementVal = array->Get( Integer::New( i ) );
@@ -635,7 +639,7 @@ V8Context::array2sv(Handle<Array> array, HV* seen, const string& hash) {
 }
 
 SV *
-V8Context::object2sv(Handle<Object> obj, HV* seen, const string& hash) {
+V8Context::object2sv(Handle<Object> obj, SvMap& seen, int hash) {
     Local<Value> ptr = obj->GetHiddenValue(String::New("perlPtr"));
 
     if (!ptr.IsEmpty()) {
@@ -645,13 +649,13 @@ V8Context::object2sv(Handle<Object> obj, HV* seen, const string& hash) {
     }
 
     if (enable_blessing && obj->Has(String::New("__perlPackage"))) {
-        return object2blessed(obj);
+        return object2blessed(obj, seen, hash);
     }
 
     HV *hv = newHV();
     SV *rv = newRV_noinc((SV*)hv);
     SvREFCNT_inc(rv);
-    hv_store(seen, hash.c_str(), hash.length(), rv, NULL);
+    seen[hash] = rv;
 
     Local<Array> properties = obj->GetPropertyNames();
     for (int i = 0; i < properties->Length(); i++) {
@@ -745,7 +749,7 @@ V8Context::get_package_name(const string& package) {
 }
 
 SV*
-V8Context::object2blessed(Handle<Object> obj) {
+V8Context::object2blessed(Handle<Object> obj, SvMap& seen, int hash) {
     Local<Object> prototype = obj->GetPrototype()->ToObject();
 
     string package = get_package_name(
@@ -780,6 +784,7 @@ V8Context::object2blessed(Handle<Object> obj) {
     SV *rv = sv_setref_pv(newSV(0), package.c_str(), (void*)data);
     data->set_sv(SvRV(rv));
 
+    seen[hash] = rv;
     obj->SetHiddenValue(String::New("perlPtr"), External::Wrap(rv));
 
     return rv;

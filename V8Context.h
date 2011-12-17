@@ -18,6 +18,8 @@ using namespace v8;
 using namespace std;
 
 typedef map<string, Persistent<Object> > ObjectMap;
+typedef map<int, SV*> SvMap;
+typedef map<int, Handle<Value> > HandleMap;
 
 class V8Context {
     public:
@@ -35,19 +37,19 @@ class V8Context {
 
         Persistent<Context> context;
     private:
-        Handle<Value>    sv2v8(SV*, Handle<Object> seen);
-        SV*              v82sv(Handle<Value>, HV* seen);
+        Handle<Value>    sv2v8(SV*, HandleMap& seen);
+        SV*              v82sv(Handle<Value>, SvMap& seen);
 
-        Handle<Value>    rv2v8(SV*, Handle<Object> seen);
-        Handle<Array>    av2array(AV*, Handle<Object> seen, long ptr);
-        Handle<Object>   hv2object(HV*, Handle<Object> seen, long ptr);
+        Handle<Value>    rv2v8(SV*, HandleMap& seen);
+        Handle<Array>    av2array(AV*, HandleMap& seen, long ptr);
+        Handle<Object>   hv2object(HV*, HandleMap& seen, long ptr);
         Handle<Function> cv2function(CV*);
         Handle<String>   sv2v8str(SV* sv);
         Handle<Object>   blessed2object(SV *sv);
 
-        SV* array2sv(Handle<Array>, HV* seen, const string& hash);
-        SV* object2sv(Handle<Object>, HV* seen, const string& hash);
-        SV* object2blessed(Handle<Object>);
+        SV* array2sv(Handle<Array>, SvMap& seen, int hash);
+        SV* object2sv(Handle<Object>, SvMap& seen, int hash);
+        SV* object2blessed(Handle<Object>, SvMap& seen, int hash);
         SV* function2sv(Handle<Function>);
 
         void fill_prototype(Handle<Object> prototype, HV* stash);
