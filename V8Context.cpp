@@ -281,12 +281,13 @@ namespace
 
 // V8Context class starts here
 
-V8Context::V8Context(int time_limit, bool enable_blessing_, const char* bless_prefix_)
+V8Context::V8Context(int time_limit, const char* flags, bool enable_blessing_, const char* bless_prefix_)
     : time_limit_(time_limit),
       bless_prefix(bless_prefix_),
-      enable_blessing(enable_blessing_),
-      context(Context::New())
+      enable_blessing(enable_blessing_)
 { 
+    V8::SetFlagsFromString(flags, strlen(flags));
+    context = Context::New();
     number++;    
 }
 

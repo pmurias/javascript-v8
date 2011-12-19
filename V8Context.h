@@ -21,7 +21,7 @@ typedef map<string, Persistent<Object> > ObjectMap;
 
 class V8Context {
     public:
-        V8Context(int time_limit = 0, bool enable_blessing = false, const char* bless_prefix = NULL);
+        V8Context(int time_limit = 0, const char* flags = NULL, bool enable_blessing = false, const char* bless_prefix = NULL);
         ~V8Context();
 
         void bind(const char*, SV*);

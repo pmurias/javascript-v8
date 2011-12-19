@@ -4,13 +4,14 @@ sub new {
     my($class, %args) = @_;
 
     my $time_limit = delete $args{time_limit} || 0;
+    my $flags = delete $args{flags} || '';
     my $enable_blessing 
         = exists $args{enable_blessing} 
         ? delete $args{enable_blessing} 
         : (exists $args{bless_prefix} ? 1 : 0);
     my $bless_prefix = delete $args{bless_prefix} || '';
 
-    $class->_new($time_limit, $enable_blessing, $bless_prefix);
+    $class->_new($time_limit, $flags, $enable_blessing, $bless_prefix);
 }
 
 sub bind_function {
