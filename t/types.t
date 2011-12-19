@@ -21,4 +21,7 @@ if ($val > 3) {
 }
 is $context->eval('(function(v) { return v + 2; })')->($val), '32', 'string conversion after numeric comparison';
 
+is $context->eval('"тест"'), 'тест', 'utf8 ok';
+is $context->eval('(function(v) { return v; })')->('тест'), 'тест';
+
 done_testing;
