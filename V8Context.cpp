@@ -213,6 +213,7 @@ namespace
             , context_is_dead(false)
             , function(Persistent<Function>::New(fn))
         {
+            context->closures.push_back((void*)this);
             SV *ptr = newSViv((IV) this);
             sv_magicext((SV*) code, ptr, PERL_MAGIC_ext,
                 &ClosureData::vtable, "v8closure", 0);
@@ -268,6 +269,7 @@ namespace
                 context_is_dead(false),
                 hash(hash_)
         {
+            context->objects.push_back((void*)this);
             SV *ptr = newSViv((IV) this);
             sv_magicext(sv, ptr, PERL_MAGIC_ext, &ObjectData::vtable, "v8object", 0);
             SvREFCNT_dec(ptr); // refcnt is incremented by sv_magicext
@@ -790,7 +792,6 @@ SV*
 V8Context::function2sv(Handle<Function> fn) {
     CV          *code = newXS(NULL, v8closure, __FILE__);
     ClosureData *data = new ClosureData(code, this, fn);
-    closures.push_back((void*)data);
     return newRV_noinc((SV*)code);
 }
 
@@ -833,7 +834,6 @@ V8Context::object2blessed(Handle<Object> obj, SvMap& seen, int hash) {
 
             CV *code = newXS(NULL, v8method, __FILE__);
             ClosureData *data = new ClosureData(code, this, fn);
-            closures.push_back((void*)data);
 
             GV* gv = (GV*)*hv_fetch(stash, *String::AsciiValue(name), name->Length(), TRUE);
             gv_init(gv, stash, *String::AsciiValue(name), name->Length(), GV_ADDMULTI); /* vivify */
@@ -844,7 +844,6 @@ V8Context::object2blessed(Handle<Object> obj, SvMap& seen, int hash) {
     SV* rv = newSV(0);
     SV* sv = newSVrv(rv, package);
     ObjectData *data = new ObjectData(obj, sv, this, hash);
-    objects.push_back((void*)data);
     sv_setiv(sv, PTR2IV(data));
     seen[hash] = PTR2IV(sv);
 
