@@ -408,6 +408,14 @@ Handle<String> V8Context::sv2v8str(SV* sv)
     return String::New(utf8, SvCUR(sv));
 }
 
+SV* find_seen(const SvMap& seen, int hash) {
+    SvMap::const_iterator it = seen.find(hash);
+    if (it == seen.end())
+        return NULL;
+    SV* cached = INT2PTR(SV*, it->second);
+    return newRV(cached);
+}
+
 SV *
 V8Context::v82sv(Handle<Value> value, SvMap& seen) {
     if (value->IsUndefined())
@@ -435,12 +443,10 @@ V8Context::v82sv(Handle<Value> value, SvMap& seen) {
     if (value->IsArray() || value->IsObject() || value->IsFunction()) {
         int hash = value->ToObject()->GetIdentityHash();
 
-        SvMap::iterator it = seen.find(hash);
- 
-        if (it != seen.end()) {
-            SV* cached = INT2PTR(SV*, it->second);
-            return newRV(cached);
-        }
+        if (SV* cached = find_seen(seen, hash))
+            return cached;
+        if (SV* cached = find_seen(seenv8, hash))
+            return cached;
 
         if (value->IsFunction()) {
             Handle<Function> fn = Handle<Function>::Cast(value);
@@ -464,7 +470,8 @@ V8Context::v82sv(Handle<Value> value, SvMap& seen) {
 
 SV *
 V8Context::v82sv(Handle<Value> value) {
-    return v82sv(value, seenv8);
+    SvMap seen;
+    return v82sv(value, seen);
 }
 
 void 
