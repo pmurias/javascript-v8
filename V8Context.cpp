@@ -201,19 +201,15 @@ namespace
         CONVERT_PERL_RESULT()
     }
 
-    class ClosureData
-    {
+    class ClosureData : public PerlObjectData {
     public:
-        V8Context *context;
-        bool context_is_dead;
         Persistent<Function> function;
 
-        ClosureData(CV* code, V8Context *ctx, Handle<Function> fn)
-            : context(ctx)
-            , context_is_dead(false)
+        ClosureData(Handle<Function> fn, CV* code, V8Context* context_, int hash_)
+            : PerlObjectData(context_, hash_)
             , function(Persistent<Function>::New(fn))
         {
-            context->closures.push_back((void*)this);
+            context->closures.push_back(this);
             SV *ptr = newSViv((IV) this);
             sv_magicext((SV*) code, ptr, PERL_MAGIC_ext,
                 &ClosureData::vtable, "v8closure", 0);
@@ -222,8 +218,8 @@ namespace
         };
         ~ClosureData() {
             if (!context_is_dead) {
-                vector<void*>& closures = context->closures;
-                for (vector<void*>::iterator it = closures.begin(); it != closures.end(); it++) {
+                vector<PerlObjectData*>& closures = context->closures;
+                for (vector<PerlObjectData*>::iterator it = closures.begin(); it != closures.end(); it++) {
                     if (*it == this) {
                         closures.erase(it);
                         break;
@@ -255,21 +251,15 @@ namespace
         return 0;
     };
 
-    class ObjectData {
+    class ObjectData : public PerlObjectData {
     public:
         Persistent<Object> object;
-        SvMap* seen;
-        V8Context* context;
-        int hash;
-        bool context_is_dead;
     
         ObjectData(Handle<Object> obj, SV* sv, V8Context* context_, int hash_)
-            : object(Persistent<Object>::New(obj)),
-                context(context_),
-                context_is_dead(false),
-                hash(hash_)
+            : PerlObjectData(context_, hash_)
+            , object(Persistent<Object>::New(obj))
         {
-            context->objects.push_back((void*)this);
+            context->objects.push_back(this);
             SV *ptr = newSViv((IV) this);
             sv_magicext(sv, ptr, PERL_MAGIC_ext, &ObjectData::vtable, "v8object", 0);
             SvREFCNT_dec(ptr); // refcnt is incremented by sv_magicext
@@ -284,8 +274,8 @@ namespace
                         seen.erase(it);
                 }
                 {
-                    vector<void*>& objects = context->objects;
-                    for (vector<void*>::iterator it = objects.begin(); it != objects.end(); it++) {
+                    vector<PerlObjectData*>& objects = context->objects;
+                    for (vector<PerlObjectData*>::iterator it = objects.begin(); it != objects.end(); it++) {
                         if (*it == this) {
                             objects.erase(it);
                             break;
@@ -333,11 +323,11 @@ V8Context::~V8Context() {
         sv = &PL_sv_undef;
     }
     seenv8.clear();
-    for (vector<void*>::iterator it = closures.begin(); it != closures.end(); it++) {
-        ((ClosureData*)*it)->context_is_dead = true;
+    for (vector<PerlObjectData*>::iterator it = closures.begin(); it != closures.end(); it++) {
+        (*it)->context_is_dead = true;
     }
-    for (vector<void*>::iterator it = objects.begin(); it != objects.end(); it++) {
-        ((ObjectData*)(*it))->context_is_dead = true;
+    for (vector<PerlObjectData*>::iterator it = objects.begin(); it != objects.end(); it++) {
+        (*it)->context_is_dead = true;
     }
     for (ObjectMap::iterator it = prototypes.begin(); it != prototypes.end(); it++) {
       it->second.Dispose();
@@ -791,7 +781,7 @@ XS(v8method) {
 SV*
 V8Context::function2sv(Handle<Function> fn) {
     CV          *code = newXS(NULL, v8closure, __FILE__);
-    ClosureData *data = new ClosureData(code, this, fn);
+    ClosureData *data = new ClosureData(fn, code, this, 0);
     return newRV_noinc((SV*)code);
 }
 
@@ -833,7 +823,7 @@ V8Context::object2blessed(Handle<Object> obj, SvMap& seen, int hash) {
             Local<Function> fn = Local<Function>::Cast(property);
 
             CV *code = newXS(NULL, v8method, __FILE__);
-            ClosureData *data = new ClosureData(code, this, fn);
+            ClosureData *data = new ClosureData(fn, code, this, 0);
 
             GV* gv = (GV*)*hv_fetch(stash, *String::AsciiValue(name), name->Length(), TRUE);
             gv_init(gv, stash, *String::AsciiValue(name), name->Length(), GV_ADDMULTI); /* vivify */
@@ -843,6 +833,7 @@ V8Context::object2blessed(Handle<Object> obj, SvMap& seen, int hash) {
 
     SV* rv = newSV(0);
     SV* sv = newSVrv(rv, package);
+
     ObjectData *data = new ObjectData(obj, sv, this, hash);
     sv_setiv(sv, PTR2IV(data));
     seen[hash] = PTR2IV(sv);

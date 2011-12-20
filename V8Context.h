@@ -22,6 +22,22 @@ typedef map<string, Persistent<Object> > ObjectMap;
 typedef map<int, long> SvMap;
 typedef map<int, Handle<Value> > HandleMap;
 
+class V8Context;
+
+class PerlObjectData {
+protected:
+    PerlObjectData() {}
+    PerlObjectData(V8Context *context_, int hash_)
+        : context(context_)
+        , context_is_dead(false)
+        , hash(hash_)
+    { }
+public:
+    int hash;
+    bool context_is_dead;
+    V8Context *context;
+};
+
 class V8Context {
     public:
         V8Context(int time_limit = 0, const char* flags = NULL, bool enable_blessing = false, const char* bless_prefix = NULL);
@@ -38,8 +54,8 @@ class V8Context {
 
         Persistent<Context> context;
         SvMap seenv8;
-        vector<void*> objects;
-        vector<void*> closures;
+        vector<PerlObjectData*> objects;
+        vector<PerlObjectData*> closures;
 
     private:
         Handle<Value>    sv2v8(SV*, HandleMap& seen);
