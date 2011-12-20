@@ -30,13 +30,14 @@ protected:
     PerlObjectData(V8Context *context_, int hash_);
     virtual ~PerlObjectData() {}
 
-    virtual Persistent<Value> object() = 0;
     void cleanup();
 
 public:
     int hash;
     bool context_is_dead;
     V8Context *context;
+
+    virtual Persistent<Value> object() = 0;
 
     static MGVTBL vtable;
     static int svt_free(pTHX_ SV*, MAGIC*);

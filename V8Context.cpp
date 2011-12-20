@@ -148,6 +148,19 @@ void PerlObjectData::cleanup() {
     object().Dispose();
 }
 
+MGVTBL PerlObjectData::vtable = {
+    0,
+    0,
+    0,
+    0,
+    PerlObjectData::svt_free
+};
+
+int PerlObjectData::svt_free(pTHX_ SV* sv, MAGIC* mg) {
+    delete (PerlObjectData*)SvIV(mg->mg_obj);
+    return 0;
+};
+
 namespace
 {
     class CVInfo
@@ -240,7 +253,7 @@ namespace
         {
             SV *ptr = newSViv((IV) this);
             sv_magicext((SV*) code, ptr, PERL_MAGIC_ext,
-                &ClosureData::vtable, "v8closure", 0);
+                &PerlObjectData::vtable, "v8closure", 0);
             SvREFCNT_dec(ptr); // refcnt is incremented by sv_magicext
             CvXSUBANY(code).any_ptr = static_cast<void*>(this);
         };
@@ -252,24 +265,6 @@ namespace
         static ClosureData *for_cv(CV *code) {
             return static_cast<ClosureData*>(CvXSUBANY(code).any_ptr);
         }
-
-    private:
-        static MGVTBL vtable;
-        static int svt_free(pTHX_ SV*, MAGIC*);
-    };
-
-    MGVTBL ClosureData::vtable = {
-        0,
-        0,
-        0,
-        0,
-        ClosureData::svt_free
-    };
-
-    int ClosureData::svt_free(pTHX_ SV* sv, MAGIC* mg) {
-        ClosureData *data = ClosureData::for_cv((CV *)sv);
-        delete data;
-        return 0;
     };
 
     class ObjectData : public PerlObjectData {
@@ -281,30 +276,13 @@ namespace
             , obj(Persistent<Object>::New(obj_))
         {
             SV *ptr = newSViv((IV) this);
-            sv_magicext(sv, ptr, PERL_MAGIC_ext, &ObjectData::vtable, "v8object", 0);
+            sv_magicext(sv, ptr, PERL_MAGIC_ext, &PerlObjectData::vtable, "v8object", 0);
             SvREFCNT_dec(ptr); // refcnt is incremented by sv_magicext
         }
     
         ~ObjectData() { cleanup(); }
 
         virtual Persistent<Value> object() { return obj; }
-    
-    public:
-        static MGVTBL vtable;
-        static int svt_free(pTHX_ SV*, MAGIC*);
-    };
- 
-    MGVTBL ObjectData::vtable = {
-        0,
-        0,
-        0,
-        0,
-        ObjectData::svt_free,
-    };
- 
-    int ObjectData::svt_free(pTHX_ SV* sv, MAGIC* mg) {
-        delete (ObjectData*)SvIV(mg->mg_obj);
-        return 0;
     };
 };
 
@@ -571,9 +549,9 @@ V8Context::rv2v8(SV *sv, HandleMap& seen) {
     SV *ref  = SvRV(sv);
 
     if (MAGIC *mg = mg_find(ref, PERL_MAGIC_ext)) {
-        if (mg->mg_virtual == &ObjectData::vtable) {
-            ObjectData *This = (ObjectData *)SvIV(ref);
-            return This->obj;
+        if (mg->mg_virtual == &PerlObjectData::vtable) {
+            PerlObjectData* This = (PerlObjectData*)SvIV(mg->mg_obj);
+            return This->object();
         }
     }
 
