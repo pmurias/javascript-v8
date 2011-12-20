@@ -73,8 +73,8 @@ class V8Context {
 
         SV* array2sv(Handle<Array>, SvMap& seen, int hash);
         SV* object2sv(Handle<Object>, SvMap& seen, int hash);
-        SV* object2blessed(Handle<Object>, SvMap& seen, int hash);
-        SV* function2sv(Handle<Function>);
+        SV* object2blessed(Handle<Object>, int hash);
+        SV* function2sv(Handle<Function>, int hash);
 
         void fill_prototype(Handle<Object> prototype, HV* stash);
         Handle<Object> get_prototype(SV* sv);

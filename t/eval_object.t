@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-use Test::More tests => 11 + 2*1000;
+use Test::More tests => 13 + 2*1000;
 use JavaScript::V8;
 use strict;
 use warnings;
@@ -57,5 +57,12 @@ for(1 .. 1000) {
 my $errcv = $context->eval('function err() { throw new Error("fail") }; err');
 eval { $errcv->() };
 like $@, qr/fail/, 'got proper exception';
+
+my $f1 = $context->eval('var f = function(a) { return a; }; f');
+my $f2 = $context->eval('f');
+my $f3 = $f2->($f1)->($f2);
+
+is $f1, $f2, 'roundtrip - same perl object';
+is $f1, $f3, 'roundtrip - same perl object';
 
 done_testing;

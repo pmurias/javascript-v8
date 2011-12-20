@@ -256,6 +256,7 @@ V8Context::V8Context(int time_limit, const char* flags, bool enable_blessing_, c
 }
 
 void V8Context::register_object(PerlObjectData* data) {
+    seenv8[data->hash] = PTR2IV(data->sv);
     objects.push_back(data);
 }
 
@@ -431,12 +432,7 @@ V8Context::v82sv(Handle<Value> value, SvMap& seen) {
         return sv;
     }
 
-    if (value->IsFunction()) {
-        Handle<Function> fn = Handle<Function>::Cast(value);
-        return function2sv(fn);
-    }
-
-    if (value->IsArray() || value->IsObject()) {
+    if (value->IsArray() || value->IsObject() || value->IsFunction()) {
         int hash = value->ToObject()->GetIdentityHash();
 
         SvMap::iterator it = seen.find(hash);
@@ -444,6 +440,11 @@ V8Context::v82sv(Handle<Value> value, SvMap& seen) {
         if (it != seen.end()) {
             SV* cached = INT2PTR(SV*, it->second);
             return newRV(cached);
+        }
+
+        if (value->IsFunction()) {
+            Handle<Function> fn = Handle<Function>::Cast(value);
+            return function2sv(fn, hash);
         }
 
         if (value->IsArray()) {
@@ -634,7 +635,7 @@ V8Context::object2sv(Handle<Object> obj, SvMap& seen, int hash) {
     }
 
     if (enable_blessing && obj->Has(String::New("__perlPackage"))) {
-        return object2blessed(obj, seen, hash);
+        return object2blessed(obj, hash);
     }
 
     HV *hv = newHV();
@@ -727,9 +728,9 @@ XS(v8method) {
 }
 
 SV*
-V8Context::function2sv(Handle<Function> fn) {
+V8Context::function2sv(Handle<Function> fn, int hash) {
     CV          *code = newXS(NULL, v8closure, __FILE__);
-    PerlObjectData *data = new PerlObjectData(fn->ToObject(), (SV*)code, this, 0);
+    PerlObjectData *data = new PerlObjectData(fn->ToObject(), (SV*)code, this, hash);
     return newRV_noinc((SV*)code);
 }
 
@@ -741,7 +742,7 @@ V8Context::get_package_name(const string& package) {
 }
 
 SV*
-V8Context::object2blessed(Handle<Object> obj, SvMap& seen, int hash) {
+V8Context::object2blessed(Handle<Object> obj, int hash) {
     char package[128];
 
     snprintf(
@@ -783,7 +784,6 @@ V8Context::object2blessed(Handle<Object> obj, SvMap& seen, int hash) {
     SV* sv = newSVrv(rv, package);
     PerlObjectData *data = new PerlObjectData(obj, sv, this, hash);
     sv_setiv(sv, PTR2IV(data));
-    seen[hash] = PTR2IV(sv);
 
     return rv;
 }
