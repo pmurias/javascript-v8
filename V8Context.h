@@ -27,15 +27,19 @@ class V8Context;
 class PerlObjectData {
 protected:
     PerlObjectData() {}
-    PerlObjectData(V8Context *context_, int hash_)
-        : context(context_)
-        , context_is_dead(false)
-        , hash(hash_)
-    { }
+    PerlObjectData(V8Context *context_, int hash_);
+    virtual ~PerlObjectData() {}
+
+    virtual Persistent<Value> object() = 0;
+    void cleanup();
+
 public:
     int hash;
     bool context_is_dead;
     V8Context *context;
+
+    static MGVTBL vtable;
+    static int svt_free(pTHX_ SV*, MAGIC*);
 };
 
 class V8Context {
@@ -55,7 +59,6 @@ class V8Context {
         Persistent<Context> context;
         SvMap seenv8;
         vector<PerlObjectData*> objects;
-        vector<PerlObjectData*> closures;
 
     private:
         Handle<Value>    sv2v8(SV*, HandleMap& seen);

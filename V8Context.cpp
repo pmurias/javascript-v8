@@ -119,6 +119,35 @@ calculate_size(SV *sv) {
 \
     return v;
 
+
+PerlObjectData::PerlObjectData(V8Context *context_, int hash_)
+    : context(context_)
+    , context_is_dead(false)
+    , hash(hash_)
+{ 
+    context->objects.push_back(this);
+}
+
+void PerlObjectData::cleanup() {
+    if (context_is_dead)
+        return;
+
+    SvMap& seen = context->seenv8;
+    SvMap::iterator it = seen.find(hash);
+    if (it != seen.end())
+        seen.erase(it);
+
+    vector<PerlObjectData*>& objects = context->objects;
+    for (vector<PerlObjectData*>::iterator it = objects.begin(); it != objects.end(); it++) {
+        if (*it == this) {
+            objects.erase(it);
+            break;
+        }
+    }
+
+    object().Dispose();
+}
+
 namespace
 {
     class CVInfo
@@ -209,25 +238,17 @@ namespace
             : PerlObjectData(context_, hash_)
             , function(Persistent<Function>::New(fn))
         {
-            context->closures.push_back(this);
             SV *ptr = newSViv((IV) this);
             sv_magicext((SV*) code, ptr, PERL_MAGIC_ext,
                 &ClosureData::vtable, "v8closure", 0);
             SvREFCNT_dec(ptr); // refcnt is incremented by sv_magicext
             CvXSUBANY(code).any_ptr = static_cast<void*>(this);
         };
-        ~ClosureData() {
-            if (!context_is_dead) {
-                vector<PerlObjectData*>& closures = context->closures;
-                for (vector<PerlObjectData*>::iterator it = closures.begin(); it != closures.end(); it++) {
-                    if (*it == this) {
-                        closures.erase(it);
-                        break;
-                    }
-                }
-                function.Dispose();
-            }
-        };
+
+        ~ClosureData() { cleanup(); }
+
+        Persistent<Value> object() { return function; }
+
         static ClosureData *for_cv(CV *code) {
             return static_cast<ClosureData*>(CvXSUBANY(code).any_ptr);
         }
@@ -253,38 +274,20 @@ namespace
 
     class ObjectData : public PerlObjectData {
     public:
-        Persistent<Object> object;
+        Persistent<Object> obj;
     
-        ObjectData(Handle<Object> obj, SV* sv, V8Context* context_, int hash_)
+        ObjectData(Handle<Object> obj_, SV* sv, V8Context* context_, int hash_)
             : PerlObjectData(context_, hash_)
-            , object(Persistent<Object>::New(obj))
+            , obj(Persistent<Object>::New(obj_))
         {
-            context->objects.push_back(this);
             SV *ptr = newSViv((IV) this);
             sv_magicext(sv, ptr, PERL_MAGIC_ext, &ObjectData::vtable, "v8object", 0);
             SvREFCNT_dec(ptr); // refcnt is incremented by sv_magicext
         }
     
-        ~ObjectData() {
-            if (!context_is_dead) {
-                {
-                    SvMap& seen = context->seenv8;
-                    SvMap::iterator it = seen.find(hash);
-                    if (it != seen.end())
-                        seen.erase(it);
-                }
-                {
-                    vector<PerlObjectData*>& objects = context->objects;
-                    for (vector<PerlObjectData*>::iterator it = objects.begin(); it != objects.end(); it++) {
-                        if (*it == this) {
-                            objects.erase(it);
-                            break;
-                        }
-                    }
-                }
-                object.Dispose();
-            }
-        }
+        ~ObjectData() { cleanup(); }
+
+        virtual Persistent<Value> object() { return obj; }
     
     public:
         static MGVTBL vtable;
@@ -323,9 +326,6 @@ V8Context::~V8Context() {
         sv = &PL_sv_undef;
     }
     seenv8.clear();
-    for (vector<PerlObjectData*>::iterator it = closures.begin(); it != closures.end(); it++) {
-        (*it)->context_is_dead = true;
-    }
     for (vector<PerlObjectData*>::iterator it = objects.begin(); it != objects.end(); it++) {
         (*it)->context_is_dead = true;
     }
@@ -573,7 +573,7 @@ V8Context::rv2v8(SV *sv, HandleMap& seen) {
     if (MAGIC *mg = mg_find(ref, PERL_MAGIC_ext)) {
         if (mg->mg_virtual == &ObjectData::vtable) {
             ObjectData *This = (ObjectData *)SvIV(ref);
-            return This->object;
+            return This->obj;
         }
     }
 
@@ -774,7 +774,7 @@ XS(v8closure) {
 XS(v8method) {
     SETUP_V8_CALL(1)
     ObjectData *This = (ObjectData *)SvIV((SV*)SvRV(ST(0)));
-    Handle<Value> result = data->function->Call(This->object->ToObject(), items - 1, argv);
+    Handle<Value> result = data->function->Call(This->obj, items - 1, argv);
     CONVERT_V8_RESULT();
 }
 
