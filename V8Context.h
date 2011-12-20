@@ -27,17 +27,16 @@ class V8Context;
 class PerlObjectData {
 protected:
     PerlObjectData() {}
-    PerlObjectData(V8Context *context_, int hash_);
-    virtual ~PerlObjectData() {}
-
-    void cleanup();
 
 public:
+    PerlObjectData(Handle<Object> object_, SV* sv_, V8Context* context_, int hash_);
+    ~PerlObjectData();
+
     int hash;
+    SV *sv;
     bool context_is_dead;
     V8Context *context;
-
-    virtual Persistent<Value> object() = 0;
+    Persistent<Object> object;
 
     static MGVTBL vtable;
     static int svt_free(pTHX_ SV*, MAGIC*);
