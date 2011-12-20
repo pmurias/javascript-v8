@@ -221,13 +221,11 @@ namespace
         };
         ~ClosureData() {
             if (!context_is_dead) {
-                {
-                    vector<void*>& objects = context->objects;
-                    for (vector<void*>::iterator it = objects.begin(); it != objects.end(); it++) {
-                        if (*it == this) {
-                            objects.erase(it);
-                            break;
-                        }
+                vector<void*>& closures = context->closures;
+                for (vector<void*>::iterator it = closures.begin(); it != closures.end(); it++) {
+                    if (*it == this) {
+                        closures.erase(it);
+                        break;
                     }
                 }
                 function.Dispose();
