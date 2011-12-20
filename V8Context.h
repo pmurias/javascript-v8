@@ -34,7 +34,6 @@ public:
 
     int hash;
     SV *sv;
-    bool context_is_dead;
     V8Context *context;
     Persistent<Object> object;
 
@@ -57,8 +56,9 @@ class V8Context {
         SV*           v82sv(Handle<Value>);
 
         Persistent<Context> context;
-        SvMap seenv8;
-        vector<PerlObjectData*> objects;
+
+        void register_object(PerlObjectData* data);
+        void remove_object(PerlObjectData* data);
 
     private:
         Handle<Value>    sv2v8(SV*, HandleMap& seen);
@@ -80,6 +80,8 @@ class V8Context {
         Handle<Object> get_prototype(SV* sv);
 
         ObjectMap prototypes;
+        vector<PerlObjectData*> objects;
+        SvMap seenv8;
 
         const string get_package_name(const string& package);
 

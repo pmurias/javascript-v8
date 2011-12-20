@@ -123,11 +123,10 @@ calculate_size(SV *sv) {
 PerlObjectData::PerlObjectData(Handle<Object> object_, SV* sv_, V8Context* context_, int hash_)
     : context(context_)
     , sv(sv_)
-    , context_is_dead(false)
     , object(Persistent<Object>::New(object_))
     , hash(hash_)
 { 
-    context->objects.push_back(this);
+    context->register_object(this);
     SV *ptr = newSViv((IV) this);
     sv_magicext(sv, ptr, PERL_MAGIC_ext,
         &PerlObjectData::vtable, "v8closure", 0);
@@ -135,22 +134,7 @@ PerlObjectData::PerlObjectData(Handle<Object> object_, SV* sv_, V8Context* conte
 }
 
 PerlObjectData::~PerlObjectData() {
-    if (context_is_dead)
-        return;
-
-    SvMap& seen = context->seenv8;
-    SvMap::iterator it = seen.find(hash);
-    if (it != seen.end())
-        seen.erase(it);
-
-    vector<PerlObjectData*>& objects = context->objects;
-    for (vector<PerlObjectData*>::iterator it = objects.begin(); it != objects.end(); it++) {
-        if (*it == this) {
-            objects.erase(it);
-            break;
-        }
-    }
-
+    if (context) context->remove_object(this);
     object.Dispose();
 }
 
@@ -271,6 +255,23 @@ V8Context::V8Context(int time_limit, const char* flags, bool enable_blessing_, c
     number++;    
 }
 
+void V8Context::register_object(PerlObjectData* data) {
+    objects.push_back(data);
+}
+
+void V8Context::remove_object(PerlObjectData* data) {
+    SvMap::iterator it = seenv8.find(data->hash);
+    if (it != seenv8.end())
+        seenv8.erase(it);
+
+    for (vector<PerlObjectData*>::iterator it = objects.begin(); it != objects.end(); it++) {
+        if (*it == data) {
+            objects.erase(it);
+            break;
+        }
+    }
+}
+
 V8Context::~V8Context() {
     for (SvMap::iterator it = seenv8.begin(); it != seenv8.end(); it++) {
         SV* sv = INT2PTR(SV*, it->second);
@@ -278,7 +279,7 @@ V8Context::~V8Context() {
     }
     seenv8.clear();
     for (vector<PerlObjectData*>::iterator it = objects.begin(); it != objects.end(); it++) {
-        (*it)->context_is_dead = true;
+        (*it)->context = NULL;
     }
     for (ObjectMap::iterator it = prototypes.begin(); it != prototypes.end(); it++) {
       it->second.Dispose();
@@ -681,7 +682,7 @@ my_gv_setsv(pTHX_ GV* const gv, SV* const sv){
         TryCatch        try_catch; \
         HandleScope     scope; \
         PerlObjectData* data = sv_object_data((SV*)cv); \
-        if (!data->context_is_dead) { \
+        if (data->context) { \
         V8Context      *self = data->context; \
         Handle<Context> ctx  = self->context; \
         Context::Scope  context_scope(ctx); \
