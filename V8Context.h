@@ -3,6 +3,7 @@
 
 #include <EXTERN.h>
 #include <perl.h>
+#include <XSUB.h>
 #undef New
 #undef Null
 
@@ -18,7 +19,7 @@ using namespace v8;
 using namespace std;
 
 typedef map<string, Persistent<Object> > ObjectMap;
-typedef map<int, SV*> SvMap;
+typedef map<int, long> SvMap;
 typedef map<int, Handle<Value> > HandleMap;
 
 class V8Context {
@@ -36,6 +37,10 @@ class V8Context {
         SV*           v82sv(Handle<Value>);
 
         Persistent<Context> context;
+        SvMap seenv8;
+        vector<void*> objects;
+        vector<void*> closures;
+
     private:
         Handle<Value>    sv2v8(SV*, HandleMap& seen);
         SV*              v82sv(Handle<Value>, SvMap& seen);
@@ -64,6 +69,7 @@ class V8Context {
         bool enable_blessing;
         static int number;
 };
+
 
 #endif
 

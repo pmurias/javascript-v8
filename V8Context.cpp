@@ -205,10 +205,12 @@ namespace
     {
     public:
         V8Context *context;
+        bool context_is_dead;
         Persistent<Function> function;
 
         ClosureData(CV* code, V8Context *ctx, Handle<Function> fn)
             : context(ctx)
+            , context_is_dead(false)
             , function(Persistent<Function>::New(fn))
         {
             SV *ptr = newSViv((IV) this);
@@ -218,7 +220,18 @@ namespace
             CvXSUBANY(code).any_ptr = static_cast<void*>(this);
         };
         ~ClosureData() {
-            function.Dispose();
+            if (!context_is_dead) {
+                {
+                    vector<void*>& objects = context->objects;
+                    for (vector<void*>::iterator it = objects.begin(); it != objects.end(); it++) {
+                        if (*it == this) {
+                            objects.erase(it);
+                            break;
+                        }
+                    }
+                }
+                function.Dispose();
+            }
         };
         static ClosureData *for_cv(CV *code) {
             return static_cast<ClosureData*>(CvXSUBANY(code).any_ptr);
@@ -246,20 +259,43 @@ namespace
     class ObjectData {
     public:
         Persistent<Object> object;
- 
-        ObjectData(Handle<Object> obj)
-            : object(Persistent<Object>::New(obj)) 
-        { }
-
-        void set_sv(SV *sv) {
+        SvMap* seen;
+        V8Context* context;
+        int hash;
+        bool context_is_dead;
+    
+        ObjectData(Handle<Object> obj, SV* sv, V8Context* context_, int hash_)
+            : object(Persistent<Object>::New(obj)),
+                context(context_),
+                context_is_dead(false),
+                hash(hash_)
+        {
             SV *ptr = newSViv((IV) this);
             sv_magicext(sv, ptr, PERL_MAGIC_ext, &ObjectData::vtable, "v8object", 0);
+            SvREFCNT_dec(ptr); // refcnt is incremented by sv_magicext
         }
- 
+    
         ~ObjectData() {
-            object.Dispose();
+            if (!context_is_dead) {
+                {
+                    SvMap& seen = context->seenv8;
+                    SvMap::iterator it = seen.find(hash);
+                    if (it != seen.end())
+                        seen.erase(it);
+                }
+                {
+                    vector<void*>& objects = context->objects;
+                    for (vector<void*>::iterator it = objects.begin(); it != objects.end(); it++) {
+                        if (*it == this) {
+                            objects.erase(it);
+                            break;
+                        }
+                    }
+                }
+                object.Dispose();
+            }
         }
- 
+    
     public:
         static MGVTBL vtable;
         static int svt_free(pTHX_ SV*, MAGIC*);
@@ -292,6 +328,17 @@ V8Context::V8Context(int time_limit, const char* flags, bool enable_blessing_, c
 }
 
 V8Context::~V8Context() {
+    for (SvMap::iterator it = seenv8.begin(); it != seenv8.end(); it++) {
+        SV* sv = INT2PTR(SV*, it->second);
+        sv = &PL_sv_undef;
+    }
+    seenv8.clear();
+    for (vector<void*>::iterator it = closures.begin(); it != closures.end(); it++) {
+        ((ClosureData*)*it)->context_is_dead = true;
+    }
+    for (vector<void*>::iterator it = objects.begin(); it != objects.end(); it++) {
+        ((ObjectData*)(*it))->context_is_dead = true;
+    }
     for (ObjectMap::iterator it = prototypes.begin(); it != prototypes.end(); it++) {
       it->second.Dispose();
     }
@@ -451,11 +498,10 @@ V8Context::v82sv(Handle<Value> value, SvMap& seen) {
         int hash = value->ToObject()->GetIdentityHash();
 
         SvMap::iterator it = seen.find(hash);
-        
+ 
         if (it != seen.end()) {
-            SV* cached = it->second;
-            SvREFCNT_inc(cached);
-            return cached;
+            SV* cached = INT2PTR(SV*, it->second);
+            return newRV(cached);
         }
 
         if (value->IsArray()) {
@@ -475,8 +521,7 @@ V8Context::v82sv(Handle<Value> value, SvMap& seen) {
 
 SV *
 V8Context::v82sv(Handle<Value> value) {
-    SvMap seen;
-    return v82sv(value, seen);
+    return v82sv(value, seenv8);
 }
 
 void 
@@ -534,8 +579,15 @@ V8Context::get_prototype(SV *sv) {
 Handle<Value>
 V8Context::rv2v8(SV *sv, HandleMap& seen) {
     SV *ref  = SvRV(sv);
-    int ptr = PTR2IV(ref);
 
+    if (MAGIC *mg = mg_find(ref, PERL_MAGIC_ext)) {
+        if (mg->mg_virtual == &ObjectData::vtable) {
+            ObjectData *This = (ObjectData *)SvIV(ref);
+            return This->object;
+        }
+    }
+
+    int ptr = PTR2IV(ref);
     HandleMap::iterator it = seen.find(ptr);
 
     if (it != seen.end()) {
@@ -556,12 +608,7 @@ V8Context::rv2v8(SV *sv, HandleMap& seen) {
     if (t == SVt_PVCV) {
         return cv2function((CV*)ref);
     }
-    if (MAGIC *mg = mg_find(ref, PERL_MAGIC_ext)) {
-        if (mg->mg_virtual == &ObjectData::vtable) {
-            ObjectData *This = (ObjectData *)SvIV(ref);
-            return This->object;
-        }
-    }
+
     warn("Unknown reference type in sv2v8()");
     return Undefined();
 }
@@ -629,7 +676,7 @@ V8Context::array2sv(Handle<Array> array, SvMap& seen, int hash) {
     AV *av = newAV();
     SV *rv = newRV_noinc((SV*)av);
     SvREFCNT_inc(rv);
-    seen[hash] = rv;
+    seen[hash] = PTR2IV(av);
 
     for (int i = 0; i < array->Length(); i++) {
         Handle<Value> elementVal = array->Get( Integer::New( i ) );
@@ -655,7 +702,7 @@ V8Context::object2sv(Handle<Object> obj, SvMap& seen, int hash) {
     HV *hv = newHV();
     SV *rv = newRV_noinc((SV*)hv);
     SvREFCNT_inc(rv);
-    seen[hash] = rv;
+    seen[hash] = PTR2IV(hv);
 
     Local<Array> properties = obj->GetPropertyNames();
     for (int i = 0; i < properties->Length(); i++) {
@@ -697,6 +744,7 @@ my_gv_setsv(pTHX_ GV* const gv, SV* const sv){
         TryCatch        try_catch; \
         HandleScope     scope; \
         ClosureData    *data = ClosureData::for_cv(cv); \
+        if (!data->context_is_dead) { \
         V8Context      *self = data->context; \
         Handle<Context> ctx  = self->context; \
         Context::Scope  context_scope(ctx); \
@@ -713,6 +761,12 @@ my_gv_setsv(pTHX_ GV* const gv, SV* const sv){
         } \
         else { \
             ST(0) = sv_2mortal(self->v82sv(result)); \
+        } \
+        } \
+        else {\
+            die = true; \
+            sv_setpv(ERRSV, "Fatal error: V8 context is no more"); \
+            sv_utf8_upgrade(ERRSV); \
         } \
     } \
 \
@@ -738,6 +792,7 @@ SV*
 V8Context::function2sv(Handle<Function> fn) {
     CV          *code = newXS(NULL, v8closure, __FILE__);
     ClosureData *data = new ClosureData(code, this, fn);
+    closures.push_back((void*)data);
     return newRV_noinc((SV*)code);
 }
 
@@ -750,16 +805,23 @@ V8Context::get_package_name(const string& package) {
 
 SV*
 V8Context::object2blessed(Handle<Object> obj, SvMap& seen, int hash) {
-    Local<Object> prototype = obj->GetPrototype()->ToObject();
+    char package[128];
 
-    string package = get_package_name(
-        *String::AsciiValue(obj->Get(String::New("__perlPackage"))->ToString())
+    snprintf(
+        package,
+        128, 
+        "%s%s::N%d", 
+        bless_prefix.c_str(),
+        *String::AsciiValue(obj->Get(String::New("__perlPackage"))->ToString()),
+        number
     );
 
-    HV *stash = gv_stashpv(package.c_str(), 0);
+    HV *stash = gv_stashpv(package, 0);
 
     if (!stash) {
-        stash = gv_stashpv(package.c_str(), GV_ADD);
+        Local<Object> prototype = obj->GetPrototype()->ToObject();
+
+        stash = gv_stashpv(package, GV_ADD);
 
         Local<Array> properties = prototype->GetPropertyNames();
         for (int i = 0; i < properties->Length(); i++) {
@@ -773,6 +835,7 @@ V8Context::object2blessed(Handle<Object> obj, SvMap& seen, int hash) {
 
             CV *code = newXS(NULL, v8method, __FILE__);
             ClosureData *data = new ClosureData(code, this, fn);
+            closures.push_back((void*)data);
 
             GV* gv = (GV*)*hv_fetch(stash, *String::AsciiValue(name), name->Length(), TRUE);
             gv_init(gv, stash, *String::AsciiValue(name), name->Length(), GV_ADDMULTI); /* vivify */
@@ -780,12 +843,12 @@ V8Context::object2blessed(Handle<Object> obj, SvMap& seen, int hash) {
         }
     }
 
-    ObjectData *data = new ObjectData(obj);
-    SV *rv = sv_setref_pv(newSV(0), package.c_str(), (void*)data);
-    data->set_sv(SvRV(rv));
-
-    seen[hash] = rv;
-    obj->SetHiddenValue(String::New("perlPtr"), External::Wrap(rv));
+    SV* rv = newSV(0);
+    SV* sv = newSVrv(rv, package);
+    ObjectData *data = new ObjectData(obj, sv, this, hash);
+    objects.push_back((void*)data);
+    sv_setiv(sv, PTR2IV(data));
+    seen[hash] = PTR2IV(sv);
 
     return rv;
 }
