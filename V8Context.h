@@ -46,6 +46,7 @@ public:
     SV *sv;
     Persistent<Object> object;
     V8Context* context;
+    int ptr;
     size_t bytes;
 
     void init (SV* sv_, V8Context* context_);
@@ -80,8 +81,11 @@ class V8Context {
 
         Persistent<Context> context;
 
-        void register_object(V8ObjectData* data);
-        void remove_object(V8ObjectData* data);
+        void register_v8_object(V8ObjectData* data);
+        void remove_v8_object(V8ObjectData* data);
+
+        void register_perl_object(PerlObjectData* data);
+        void remove_perl_object(PerlObjectData* data);
 
     private:
         Handle<Value>    sv2v8(SV*, HandleMap& seen);
@@ -104,7 +108,8 @@ class V8Context {
 
         ObjectMap prototypes;
         vector<V8ObjectData*> objects;
-        SvMap seenv8;
+        SvMap seen_v8;
+        HandleMap seen_perl;
 
         int time_limit_;
         string bless_prefix;

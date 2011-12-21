@@ -126,7 +126,7 @@ V8ObjectData::V8ObjectData(Handle<Object> object_, SV* sv_, V8Context* context_,
     , object(Persistent<Object>::New(object_))
     , hash(hash_)
 { 
-    context->register_object(this);
+    context->register_v8_object(this);
     SV *ptr = newSViv((IV) this);
     sv_magicext(sv, ptr, PERL_MAGIC_ext,
         &V8ObjectData::vtable, "v8closure", 0);
@@ -134,7 +134,7 @@ V8ObjectData::V8ObjectData(Handle<Object> object_, SV* sv_, V8Context* context_,
 }
 
 V8ObjectData::~V8ObjectData() {
-    if (context) context->remove_object(this);
+    if (context) context->remove_v8_object(this);
     object.Dispose();
 }
 
@@ -189,6 +189,7 @@ inline void PerlObjectData::set_sv(SV* sv_) {
     if (sv) {
         SvREFCNT_inc(sv);
         add_size(calculate_size(sv));
+        ptr = PTR2IV(sv);
     }
 }
 
@@ -280,15 +281,15 @@ V8Context::V8Context(int time_limit, const char* flags, bool enable_blessing_, c
     number++;    
 }
 
-void V8Context::register_object(V8ObjectData* data) {
-    seenv8[data->hash] = PTR2IV(data->sv);
+void V8Context::register_v8_object(V8ObjectData* data) {
+    seen_v8[data->hash] = PTR2IV(data->sv);
     objects.push_back(data);
 }
 
-void V8Context::remove_object(V8ObjectData* data) {
-    SvMap::iterator it = seenv8.find(data->hash);
-    if (it != seenv8.end())
-        seenv8.erase(it);
+void V8Context::remove_v8_object(V8ObjectData* data) {
+    SvMap::iterator it = seen_v8.find(data->hash);
+    if (it != seen_v8.end())
+        seen_v8.erase(it);
 
     for (vector<V8ObjectData*>::iterator it = objects.begin(); it != objects.end(); it++) {
         if (*it == data) {
@@ -298,12 +299,21 @@ void V8Context::remove_object(V8ObjectData* data) {
     }
 }
 
+void V8Context::register_perl_object(PerlObjectData* data) {
+    if (int ptr = data->ptr)
+        seen_perl[data->ptr] = data->object;
+}
+
+void V8Context::remove_perl_object(PerlObjectData* data) {
+    
+}
+
 V8Context::~V8Context() {
-    for (SvMap::iterator it = seenv8.begin(); it != seenv8.end(); it++) {
+    for (SvMap::iterator it = seen_v8.begin(); it != seen_v8.end(); it++) {
         SV* sv = INT2PTR(SV*, it->second);
         sv = &PL_sv_undef;
     }
-    seenv8.clear();
+    seen_v8.clear();
     for (vector<V8ObjectData*>::iterator it = objects.begin(); it != objects.end(); it++) {
         (*it)->context = NULL;
     }
@@ -433,13 +443,18 @@ Handle<String> V8Context::sv2v8str(SV* sv)
     return String::New(utf8, SvCUR(sv));
 }
 
-SV* find_seen(const SvMap& seen, int hash) {
+inline SV* find_seen(const SvMap& seen, int hash) {
     SvMap::const_iterator it = seen.find(hash);
     if (it == seen.end())
         return NULL;
     SV* cached = INT2PTR(SV*, it->second);
     return newRV(cached);
 }
+
+#undef TRY_CACHE
+#define TRY_CACHE(s, p) \
+if (SV* cached = find_seen(seen, hash)) \
+    return cached; \
 
 SV *
 V8Context::v82sv(Handle<Value> value, SvMap& seen) {
@@ -468,10 +483,8 @@ V8Context::v82sv(Handle<Value> value, SvMap& seen) {
     if (value->IsArray() || value->IsObject() || value->IsFunction()) {
         int hash = value->ToObject()->GetIdentityHash();
 
-        if (SV* cached = find_seen(seen, hash))
-            return cached;
-        if (SV* cached = find_seen(seenv8, hash))
-            return cached;
+        TRY_CACHE(seen, hash);
+        TRY_CACHE(seen_v8, hash);
 
         if (value->IsFunction()) {
             Handle<Function> fn = Handle<Function>::Cast(value);
@@ -542,6 +555,22 @@ V8Context::get_prototype(SV *sv) {
     return prototype;
 }
 
+inline Handle<Value> find_seen(const HandleMap& seen, int ptr) {
+    HandleMap::const_iterator it = seen.find(ptr);
+    if (it != seen.end()) {
+        return it->second;
+    }
+    return Handle<Value>();
+}
+
+#undef TRY_CACHE
+#define TRY_CACHE(s, p) \
+{ \
+    Handle<Value> cached(find_seen(s, p)); \
+    if (!cached.IsEmpty()) \
+        return cached; \
+}
+
 Handle<Value>
 V8Context::rv2v8(SV *sv, HandleMap& seen) {
     SV *ref  = SvRV(sv);
@@ -550,12 +579,9 @@ V8Context::rv2v8(SV *sv, HandleMap& seen) {
         return data->object;
 
     int ptr = PTR2IV(ref);
-    HandleMap::iterator it = seen.find(ptr);
 
-    if (it != seen.end()) {
-        Handle<Value> cached = it->second;
-        return cached;
-    }
+    TRY_CACHE(seen, ptr);
+    TRY_CACHE(seen_perl, ptr);
 
     unsigned t = SvTYPE(ref);
     if (sv_isobject(sv)) {
