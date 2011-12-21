@@ -83,8 +83,6 @@ class V8Context {
         vector<PerlObjectData*> objects;
         SvMap seenv8;
 
-        const string get_package_name(const string& package);
-
         int time_limit_;
         string bless_prefix;
         bool enable_blessing;

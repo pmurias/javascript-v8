@@ -741,13 +741,6 @@ V8Context::function2sv(Handle<Function> fn, int hash) {
     return newRV_noinc((SV*)code);
 }
 
-const string
-V8Context::get_package_name(const string& package) {
-    std::stringstream ss;
-    ss << bless_prefix << package << "::N" << number;
-    return ss.str();
-}
-
 SV*
 V8Context::object2blessed(Handle<Object> obj, int hash) {
     char package[128];
