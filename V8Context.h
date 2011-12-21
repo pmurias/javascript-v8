@@ -24,13 +24,13 @@ typedef map<int, Handle<Value> > HandleMap;
 
 class V8Context;
 
-class PerlObjectData {
+class V8ObjectData {
 protected:
-    PerlObjectData() {}
+    V8ObjectData() {}
 
 public:
-    PerlObjectData(Handle<Object> object_, SV* sv_, V8Context* context_, int hash_);
-    ~PerlObjectData();
+    V8ObjectData(Handle<Object> object_, SV* sv_, V8Context* context_, int hash_);
+    ~V8ObjectData();
 
     int hash;
     SV *sv;
@@ -41,7 +41,7 @@ public:
     static int svt_free(pTHX_ SV*, MAGIC*);
 };
 
-class V8ObjectData {
+class PerlObjectData {
 public:
     SV *sv;
     Persistent<Object> object;
@@ -50,8 +50,8 @@ public:
 
     void init (SV* sv_, V8Context* context_);
 
-    V8ObjectData(SV* sv_, V8Context* context_);
-    V8ObjectData(SV* sv_, Handle<Object> object_, V8Context* context_);
+    PerlObjectData(SV* sv_, V8Context* context_);
+    PerlObjectData(SV* sv_, Handle<Object> object_, V8Context* context_);
 
     void set_sv(SV* sv_);
     void set_object(Handle<Object> object_);
@@ -59,7 +59,7 @@ public:
     virtual size_t size();
     void add_size(size_t bytes_);
 
-    virtual ~V8ObjectData();
+    virtual ~PerlObjectData();
 
     static void destroy(Persistent<Value> object, void *data);
 };
@@ -80,8 +80,8 @@ class V8Context {
 
         Persistent<Context> context;
 
-        void register_object(PerlObjectData* data);
-        void remove_object(PerlObjectData* data);
+        void register_object(V8ObjectData* data);
+        void remove_object(V8ObjectData* data);
 
     private:
         Handle<Value>    sv2v8(SV*, HandleMap& seen);
@@ -103,7 +103,7 @@ class V8Context {
         Handle<Object> get_prototype(SV* sv);
 
         ObjectMap prototypes;
-        vector<PerlObjectData*> objects;
+        vector<V8ObjectData*> objects;
         SvMap seenv8;
 
         int time_limit_;

@@ -120,7 +120,7 @@ calculate_size(SV *sv) {
     return v;
 
 
-PerlObjectData::PerlObjectData(Handle<Object> object_, SV* sv_, V8Context* context_, int hash_)
+V8ObjectData::V8ObjectData(Handle<Object> object_, SV* sv_, V8Context* context_, int hash_)
     : context(context_)
     , sv(sv_)
     , object(Persistent<Object>::New(object_))
@@ -129,62 +129,62 @@ PerlObjectData::PerlObjectData(Handle<Object> object_, SV* sv_, V8Context* conte
     context->register_object(this);
     SV *ptr = newSViv((IV) this);
     sv_magicext(sv, ptr, PERL_MAGIC_ext,
-        &PerlObjectData::vtable, "v8closure", 0);
+        &V8ObjectData::vtable, "v8closure", 0);
     SvREFCNT_dec(ptr); // refcnt is incremented by sv_magicext
 }
 
-PerlObjectData::~PerlObjectData() {
+V8ObjectData::~V8ObjectData() {
     if (context) context->remove_object(this);
     object.Dispose();
 }
 
-MGVTBL PerlObjectData::vtable = {
+MGVTBL V8ObjectData::vtable = {
     0,
     0,
     0,
     0,
-    PerlObjectData::svt_free
+    V8ObjectData::svt_free
 };
 
-int PerlObjectData::svt_free(pTHX_ SV* sv, MAGIC* mg) {
-    delete (PerlObjectData*)SvIV(mg->mg_obj);
+int V8ObjectData::svt_free(pTHX_ SV* sv, MAGIC* mg) {
+    delete (V8ObjectData*)SvIV(mg->mg_obj);
     return 0;
 };
 
-PerlObjectData* sv_object_data(SV* sv) {
+V8ObjectData* sv_object_data(SV* sv) {
     if (MAGIC *mg = mg_find(sv, PERL_MAGIC_ext)) {
-        if (mg->mg_virtual == &PerlObjectData::vtable) {
-            return (PerlObjectData*)SvIV(mg->mg_obj);
+        if (mg->mg_virtual == &V8ObjectData::vtable) {
+            return (V8ObjectData*)SvIV(mg->mg_obj);
         }
     }
     return NULL;
 }
 
-inline void V8ObjectData::init (SV* sv_, V8Context* context_) {
+inline void PerlObjectData::init (SV* sv_, V8Context* context_) {
     context = context_;
     set_sv(sv_);
     add_size(size());
 }
 
-V8ObjectData::V8ObjectData(SV* sv_, V8Context* context_) {
+PerlObjectData::PerlObjectData(SV* sv_, V8Context* context_) {
     init(sv_, context_);
 }
 
-V8ObjectData::V8ObjectData(SV* sv_, Handle<Object> object_, V8Context* context_) {
+PerlObjectData::PerlObjectData(SV* sv_, Handle<Object> object_, V8Context* context_) {
     init(sv_, context_);
     set_object(object_);
 }
 
-size_t V8ObjectData::size() {
-    return sizeof(V8ObjectData);
+size_t PerlObjectData::size() {
+    return sizeof(PerlObjectData);
 }
 
-inline void V8ObjectData::add_size(size_t bytes_) {
+inline void PerlObjectData::add_size(size_t bytes_) {
     bytes += bytes_;
     V8::AdjustAmountOfExternalAllocatedMemory(bytes_);
 }
 
-inline void V8ObjectData::set_sv(SV* sv_) {
+inline void PerlObjectData::set_sv(SV* sv_) {
     sv = sv_;
     if (sv) {
         SvREFCNT_inc(sv);
@@ -192,12 +192,12 @@ inline void V8ObjectData::set_sv(SV* sv_) {
     }
 }
 
-inline void V8ObjectData::set_object(Handle<Object> object_) {
+inline void PerlObjectData::set_object(Handle<Object> object_) {
     object = Persistent<Object>::New(object_);
-    object.MakeWeak(this, V8ObjectData::destroy);
+    object.MakeWeak(this, PerlObjectData::destroy);
 }
 
-V8ObjectData::~V8ObjectData() {
+PerlObjectData::~PerlObjectData() {
     if (sv) {
         add_size(-bytes);
         SvREFCNT_dec((SV*)sv);
@@ -205,11 +205,11 @@ V8ObjectData::~V8ObjectData() {
     object.Dispose();
 }
 
-void V8ObjectData::destroy(Persistent<Value> object, void *data) {
-    delete static_cast<V8ObjectData*>(data);
+void PerlObjectData::destroy(Persistent<Value> object, void *data) {
+    delete static_cast<PerlObjectData*>(data);
 }
 
-class V8FunctionData : public V8ObjectData {
+class PerlFunctionData : public PerlObjectData {
 private:
     SV *rv;
 
@@ -218,8 +218,8 @@ protected:
     virtual size_t size();
 
 public:
-    V8FunctionData(CV *cv, V8Context* context_) 
-        : V8ObjectData((SV*)cv, context_)
+    PerlFunctionData(CV *cv, V8Context* context_) 
+        : PerlObjectData((SV*)cv, context_)
     { 
         if (cv) rv = newRV_noinc((SV*)cv);
         Local<FunctionTemplate> tmpl = FunctionTemplate::New(v8invoke, External::Wrap(this));
@@ -228,44 +228,44 @@ public:
     }
 
     static Handle<Value> v8invoke(const Arguments& args) {
-        V8FunctionData* data = static_cast<V8FunctionData*>(External::Unwrap(args.Data()));
+        PerlFunctionData* data = static_cast<PerlFunctionData*>(External::Unwrap(args.Data()));
         return data->invoke(args);
     }
 };
 
-size_t V8FunctionData::size() {
-    return sizeof(V8FunctionData);
+size_t PerlFunctionData::size() {
+    return sizeof(PerlFunctionData);
 }
 
 Handle<Value>
-V8FunctionData::invoke(const Arguments& args) {
+PerlFunctionData::invoke(const Arguments& args) {
     SETUP_PERL_CALL();
     int count = call_sv(rv, G_SCALAR);
     CONVERT_PERL_RESULT();
 }
 
-class V8MethodData : public V8FunctionData {
+class PerlMethodData : public PerlFunctionData {
 private:
     string name;
     virtual Handle<Value> invoke(const Arguments& args);
     virtual size_t size();
 
 public:
-    V8MethodData(const char* name_, V8Context* context_)
-        : V8FunctionData(NULL, context_)
+    PerlMethodData(const char* name_, V8Context* context_)
+        : PerlFunctionData(NULL, context_)
         , name(name_)
     { }
 };
 
 Handle<Value>
-V8MethodData::invoke(const Arguments& args) {
+PerlMethodData::invoke(const Arguments& args) {
     SETUP_PERL_CALL(mXPUSHs(context->v82sv(args.This())))
     int count = call_method(name.c_str(), G_SCALAR | G_EVAL);
     CONVERT_PERL_RESULT()
 }
 
-size_t V8MethodData::size() {
-    return sizeof(V8MethodData);
+size_t PerlMethodData::size() {
+    return sizeof(PerlMethodData);
 }
 
 // V8Context class starts here
@@ -280,17 +280,17 @@ V8Context::V8Context(int time_limit, const char* flags, bool enable_blessing_, c
     number++;    
 }
 
-void V8Context::register_object(PerlObjectData* data) {
+void V8Context::register_object(V8ObjectData* data) {
     seenv8[data->hash] = PTR2IV(data->sv);
     objects.push_back(data);
 }
 
-void V8Context::remove_object(PerlObjectData* data) {
+void V8Context::remove_object(V8ObjectData* data) {
     SvMap::iterator it = seenv8.find(data->hash);
     if (it != seenv8.end())
         seenv8.erase(it);
 
-    for (vector<PerlObjectData*>::iterator it = objects.begin(); it != objects.end(); it++) {
+    for (vector<V8ObjectData*>::iterator it = objects.begin(); it != objects.end(); it++) {
         if (*it == data) {
             objects.erase(it);
             break;
@@ -304,7 +304,7 @@ V8Context::~V8Context() {
         sv = &PL_sv_undef;
     }
     seenv8.clear();
-    for (vector<PerlObjectData*>::iterator it = objects.begin(); it != objects.end(); it++) {
+    for (vector<V8ObjectData*>::iterator it = objects.begin(); it != objects.end(); it++) {
         (*it)->context = NULL;
     }
     for (ObjectMap::iterator it = prototypes.begin(); it != prototypes.end(); it++) {
@@ -509,7 +509,7 @@ V8Context::fill_prototype(Handle<Object> prototype, HV* stash) {
         if (prototype->Has(name))
             continue;
 
-        prototype->Set(name, (new V8MethodData(SvPV_nolen(key), this))->object);
+        prototype->Set(name, (new PerlMethodData(SvPV_nolen(key), this))->object);
     }
 }
 
@@ -546,7 +546,7 @@ Handle<Value>
 V8Context::rv2v8(SV *sv, HandleMap& seen) {
     SV *ref  = SvRV(sv);
 
-    if (PerlObjectData* data = sv_object_data(ref))
+    if (V8ObjectData* data = sv_object_data(ref))
         return data->object;
 
     int ptr = PTR2IV(ref);
@@ -582,7 +582,7 @@ V8Context::blessed2object(SV *sv) {
     object->SetHiddenValue(String::New("perlPtr"), External::Wrap(sv));
     object->SetPrototype(get_prototype(sv));
 
-    new V8ObjectData(sv, object, this);
+    new PerlObjectData(sv, object, this);
 
     return object;
 }
@@ -615,7 +615,7 @@ V8Context::hv2object(HV *hv, HandleMap& seen, long ptr) {
 
 Handle<Object>
 V8Context::cv2function(CV *cv) {
-    return (new V8FunctionData(cv, this))->object;
+    return (new PerlFunctionData(cv, this))->object;
 }
 
 SV*
@@ -690,7 +690,7 @@ my_gv_setsv(pTHX_ GV* const gv, SV* const sv){
          * middle of the block, v8 will segfault at program exit. */ \
         TryCatch        try_catch; \
         HandleScope     scope; \
-        PerlObjectData* data = sv_object_data((SV*)cv); \
+        V8ObjectData* data = sv_object_data((SV*)cv); \
         if (data->context) { \
         V8Context      *self = data->context; \
         Handle<Context> ctx  = self->context; \
@@ -730,7 +730,7 @@ XS(v8closure) {
 
 XS(v8method) {
     SETUP_V8_CALL(1)
-    PerlObjectData* This = (PerlObjectData*)SvIV((SV*)SvRV(ST(0)));
+    V8ObjectData* This = (V8ObjectData*)SvIV((SV*)SvRV(ST(0)));
     Handle<Value> result = Handle<Function>::Cast(data->object)->Call(This->object, items - 1, argv);
     CONVERT_V8_RESULT();
 }
@@ -738,7 +738,7 @@ XS(v8method) {
 SV*
 V8Context::function2sv(Handle<Function> fn, int hash) {
     CV          *code = newXS(NULL, v8closure, __FILE__);
-    PerlObjectData *data = new PerlObjectData(fn->ToObject(), (SV*)code, this, hash);
+    V8ObjectData *data = new V8ObjectData(fn->ToObject(), (SV*)code, this, hash);
     return newRV_noinc((SV*)code);
 }
 
@@ -773,7 +773,7 @@ V8Context::object2blessed(Handle<Object> obj, int hash) {
             Local<Function> fn = Local<Function>::Cast(property);
 
             CV *code = newXS(NULL, v8method, __FILE__);
-            PerlObjectData *data = new PerlObjectData(fn, (SV*)code, this, 0);
+            V8ObjectData *data = new V8ObjectData(fn, (SV*)code, this, 0);
 
             GV* gv = (GV*)*hv_fetch(stash, *String::AsciiValue(name), name->Length(), TRUE);
             gv_init(gv, stash, *String::AsciiValue(name), name->Length(), GV_ADDMULTI); /* vivify */
@@ -783,7 +783,7 @@ V8Context::object2blessed(Handle<Object> obj, int hash) {
 
     SV* rv = newSV(0);
     SV* sv = newSVrv(rv, package);
-    PerlObjectData *data = new PerlObjectData(obj, sv, this, hash);
+    V8ObjectData *data = new V8ObjectData(obj, sv, this, hash);
     sv_setiv(sv, PTR2IV(data));
 
     return rv;
