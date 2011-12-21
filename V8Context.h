@@ -41,6 +41,29 @@ public:
     static int svt_free(pTHX_ SV*, MAGIC*);
 };
 
+class V8ObjectData {
+public:
+    SV *sv;
+    Persistent<Object> object;
+    V8Context* context;
+    size_t bytes;
+
+    void init (SV* sv_, V8Context* context_);
+
+    V8ObjectData(SV* sv_, V8Context* context_);
+    V8ObjectData(SV* sv_, Handle<Object> object_, V8Context* context_);
+
+    void set_sv(SV* sv_);
+    void set_object(Handle<Object> object_);
+
+    virtual size_t size();
+    void add_size(size_t bytes_);
+
+    virtual ~V8ObjectData();
+
+    static void destroy(Persistent<Value> object, void *data);
+};
+
 class V8Context {
     public:
         V8Context(int time_limit = 0, const char* flags = NULL, bool enable_blessing = false, const char* bless_prefix = NULL);
@@ -67,7 +90,7 @@ class V8Context {
         Handle<Value>    rv2v8(SV*, HandleMap& seen);
         Handle<Array>    av2array(AV*, HandleMap& seen, long ptr);
         Handle<Object>   hv2object(HV*, HandleMap& seen, long ptr);
-        Handle<Function> cv2function(CV*);
+        Handle<Object>   cv2function(CV*);
         Handle<String>   sv2v8str(SV* sv);
         Handle<Object>   blessed2object(SV *sv);
 

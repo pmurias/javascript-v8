@@ -160,88 +160,113 @@ PerlObjectData* sv_object_data(SV* sv) {
     return NULL;
 }
 
-namespace
-{
-    class CVInfo
-    {
-        SV*        ref;
-        IV         bytes;
-        V8Context* context;
+inline void V8ObjectData::init (SV* sv_, V8Context* context_) {
+    context = context_;
+    set_sv(sv_);
+    add_size(size());
+}
 
-    public:
-        CVInfo(CV *cv, V8Context *ctx)
-            : context(ctx)
-            , ref(newRV_inc((SV*)cv))
-            , bytes(calculate_size(ref) + sizeof(CVInfo))
-        {
-            V8::AdjustAmountOfExternalAllocatedMemory(bytes);
-        };
+V8ObjectData::V8ObjectData(SV* sv_, V8Context* context_) {
+    init(sv_, context_);
+}
 
-        ~CVInfo() {
-            SvREFCNT_dec(ref);
-            V8::AdjustAmountOfExternalAllocatedMemory(-bytes);
-        };
+V8ObjectData::V8ObjectData(SV* sv_, Handle<Object> object_, V8Context* context_) {
+    init(sv_, context_);
+    set_object(object_);
+}
 
-        static void destroy(Persistent<Value> o, void *p) {
-            CVInfo *code = static_cast<CVInfo*>(p);
-            delete code;
-        };
+size_t V8ObjectData::size() {
+    return sizeof(V8ObjectData);
+}
 
-        static Handle<Value> v8invoke(const Arguments& args) {
-            CVInfo *code = static_cast<CVInfo*>(External::Unwrap(args.Data()));
-            return code->invoke(args);
-        }
+inline void V8ObjectData::add_size(size_t bytes_) {
+    bytes += bytes_;
+    V8::AdjustAmountOfExternalAllocatedMemory(bytes_);
+}
 
-        Handle<Value> invoke(const Arguments& args);
-    };
+inline void V8ObjectData::set_sv(SV* sv_) {
+    sv = sv_;
+    if (sv) {
+        SvREFCNT_inc(sv);
+        add_size(calculate_size(sv));
+    }
+}
 
-    Handle<Value>
-    CVInfo::invoke(const Arguments& args)
-    {
-        SETUP_PERL_CALL();
-        int count = call_sv(ref, G_SCALAR);
-        CONVERT_PERL_RESULT();
+inline void V8ObjectData::set_object(Handle<Object> object_) {
+    object = Persistent<Object>::New(object_);
+    object.MakeWeak(this, V8ObjectData::destroy);
+}
+
+V8ObjectData::~V8ObjectData() {
+    if (sv) {
+        add_size(-bytes);
+        SvREFCNT_dec((SV*)sv);
+    }
+    object.Dispose();
+}
+
+void V8ObjectData::destroy(Persistent<Value> object, void *data) {
+    delete static_cast<V8ObjectData*>(data);
+}
+
+class V8FunctionData : public V8ObjectData {
+private:
+    SV *rv;
+
+protected:
+    virtual Handle<Value> invoke(const Arguments& args);
+    virtual size_t size();
+
+public:
+    V8FunctionData(CV *cv, V8Context* context_) 
+        : V8ObjectData((SV*)cv, context_)
+    { 
+        if (cv) rv = newRV_noinc((SV*)cv);
+        Local<FunctionTemplate> tmpl = FunctionTemplate::New(v8invoke, External::Wrap(this));
+        Handle<Function> fn = tmpl->GetFunction();
+        set_object(Handle<Object>::Cast(fn));
     }
 
-    class MethodInfo
-    {
-        string     name;
-        IV         bytes;
-        V8Context* context;
-
-    public:
-        MethodInfo(const char* nm, V8Context *ctx)
-            : context(ctx)
-            , name(nm)
-            , bytes(1)
-        {
-            V8::AdjustAmountOfExternalAllocatedMemory(bytes);
-        };
-
-        ~MethodInfo() {
-            V8::AdjustAmountOfExternalAllocatedMemory(-bytes);
-        };
-
-        static void destroy(Persistent<Value> o, void *p) {
-            MethodInfo *code = static_cast<MethodInfo*>(p);
-            delete code;
-        };
-
-        static Handle<Value> v8invoke(const Arguments& args) {
-            MethodInfo *code = static_cast<MethodInfo*>(External::Unwrap(args.Data()));
-            return code->invoke(args);
-        }
-
-        Handle<Value> invoke(const Arguments& args);
-    };
-
-    Handle<Value>
-    MethodInfo::invoke(const Arguments& args) {
-        SETUP_PERL_CALL(mXPUSHs(context->v82sv(args.This())))
-        int count = call_method(name.c_str(), G_SCALAR | G_EVAL);
-        CONVERT_PERL_RESULT()
+    static Handle<Value> v8invoke(const Arguments& args) {
+        V8FunctionData* data = static_cast<V8FunctionData*>(External::Unwrap(args.Data()));
+        return data->invoke(args);
     }
 };
+
+size_t V8FunctionData::size() {
+    return sizeof(V8FunctionData);
+}
+
+Handle<Value>
+V8FunctionData::invoke(const Arguments& args) {
+    SETUP_PERL_CALL();
+    int count = call_sv(rv, G_SCALAR);
+    CONVERT_PERL_RESULT();
+}
+
+class V8MethodData : public V8FunctionData {
+private:
+    string name;
+    virtual Handle<Value> invoke(const Arguments& args);
+    virtual size_t size();
+
+public:
+    V8MethodData(const char* name_, V8Context* context_)
+        : V8FunctionData(NULL, context_)
+        , name(name_)
+    { }
+};
+
+Handle<Value>
+V8MethodData::invoke(const Arguments& args) {
+    SETUP_PERL_CALL(mXPUSHs(context->v82sv(args.This())))
+    int count = call_method(name.c_str(), G_SCALAR | G_EVAL);
+    CONVERT_PERL_RESULT()
+}
+
+size_t V8MethodData::size() {
+    return sizeof(V8MethodData);
+}
 
 // V8Context class starts here
 
@@ -484,16 +509,7 @@ V8Context::fill_prototype(Handle<Object> prototype, HV* stash) {
         if (prototype->Has(name))
             continue;
 
-        MethodInfo *method = new MethodInfo(SvPV_nolen(key), this);
-
-        void                   *ptr  = static_cast<void*>(method);
-        Local<External>         wrap = External::New(ptr);
-        Persistent<External>    weak = Persistent<External>::New(wrap);
-        Local<FunctionTemplate> tmpl = FunctionTemplate::New(MethodInfo::v8invoke, weak);
-
-        weak.MakeWeak(ptr, MethodInfo::destroy);
-
-        prototype->Set(name, tmpl->GetFunction());
+        prototype->Set(name, (new V8MethodData(SvPV_nolen(key), this))->object);
     }
 }
 
@@ -559,21 +575,14 @@ V8Context::rv2v8(SV *sv, HandleMap& seen) {
     return Undefined();
 }
 
-static void DestroyCallback(Persistent<Value> o, void *sv) {
-    SvREFCNT_dec((SV*)sv);
-    o.Dispose();
-}
-
 Handle<Object>
 V8Context::blessed2object(SV *sv) {
-    Persistent<Object> object(Persistent<Object>::New(Object::New()));
-
-    SvREFCNT_inc(sv);
+    Handle<Object> object = Object::New();
 
     object->SetHiddenValue(String::New("perlPtr"), External::Wrap(sv));
     object->SetPrototype(get_prototype(sv));
 
-    object.MakeWeak(sv, DestroyCallback);
+    new V8ObjectData(sv, object, this);
 
     return object;
 }
@@ -604,17 +613,9 @@ V8Context::hv2object(HV *hv, HandleMap& seen, long ptr) {
     return object;
 }
 
-Handle<Function>
+Handle<Object>
 V8Context::cv2function(CV *cv) {
-    CVInfo                 *code = new CVInfo(cv, this);
-    void                   *ptr  = static_cast<void*>(code);
-    Local<External>         wrap = External::New(ptr);
-    Persistent<External>    weak = Persistent<External>::New(wrap);
-    Local<FunctionTemplate> tmpl = FunctionTemplate::New(CVInfo::v8invoke, weak);
-    Handle<Function>        fn   = tmpl->GetFunction();
-    weak.MakeWeak(ptr, CVInfo::destroy);
-
-    return fn;
+    return (new V8FunctionData(cv, this))->object;
 }
 
 SV*
