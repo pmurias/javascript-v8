@@ -29,7 +29,6 @@ my %mm = (
     XSOPT             => '-C++ -hiertype',
     TYPEMAPS          => ['perlobject.map'],
     CC                => $CC,
-    CCFLAGS           => '-g',
     LD                => '$(CC)',
     depend            => { 'WithV8Context.c' => 'JavaScript-V8-Context.xsp' },
 );
