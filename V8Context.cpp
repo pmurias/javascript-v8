@@ -189,13 +189,14 @@ inline void PerlObjectData::set_sv(SV* sv_) {
     if (sv) {
         SvREFCNT_inc(sv);
         add_size(calculate_size(sv));
-        ptr = PTR2IV(sv);
+        ptr = PTR2IV(SvRV(sv));
     }
 }
 
 inline void PerlObjectData::set_object(Handle<Object> object_) {
     object = Persistent<Object>::New(object_);
     object.MakeWeak(this, PerlObjectData::destroy);
+    context->register_perl_object(this); // register only when we have an object
 }
 
 PerlObjectData::~PerlObjectData() {

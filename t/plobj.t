@@ -127,5 +127,11 @@ $context->set_flags_from_string("--expose-gc");
 
     ok $destroyed, 'local js object is destroyed after perl scope is done';
 }
+ 
+{
+    my $c = Counter->new;
+    $context->eval('(function (c) { c.zzz = "value to persist"; })')->($c);
+    is $context->eval('(function (c) { return c.zzz; })')->($c), "value to persist", 'perl objects are converted once';
+}
 
 done_testing;
