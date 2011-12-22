@@ -453,7 +453,7 @@ inline SV* find_seen(const SvMap& seen, int hash) {
 
 #undef TRY_CACHE
 #define TRY_CACHE(s, p) \
-if (SV* cached = find_seen(seen, hash)) \
+if (SV* cached = find_seen(s, p)) \
     return cached; \
 
 SV *
