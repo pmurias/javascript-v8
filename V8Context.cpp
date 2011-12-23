@@ -204,6 +204,7 @@ PerlObjectData::~PerlObjectData() {
         add_size(-bytes);
         SvREFCNT_dec((SV*)sv);
     }
+    context->remove_perl_object(this);
     object.Dispose();
 }
 
@@ -329,7 +330,9 @@ void V8Context::register_perl_object(PerlObjectData* data) {
 }
 
 void V8Context::remove_perl_object(PerlObjectData* data) {
-    
+    HandleMap::iterator it = seen_perl.find(data->ptr);
+    if (it != seen_perl.end())
+        seen_perl.erase(it);
 }
 
 V8Context::~V8Context() {
