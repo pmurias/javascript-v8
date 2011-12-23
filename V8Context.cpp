@@ -95,7 +95,7 @@ calculate_size(SV *sv) {
 \
     PUSHSELF; \
 \
-    for (int i = 0; i < len; i++) { \
+    for (int i = 1; i < len; i++) { \
         SV *arg = context->v82sv(args[i]); \
         mXPUSHs(arg); \
     } \
@@ -224,13 +224,13 @@ public:
         : PerlObjectData((SV*)cv, context_)
     { 
         if (cv) rv = newRV_noinc((SV*)cv);
-        Local<FunctionTemplate> tmpl = FunctionTemplate::New(v8invoke, External::Wrap(this));
-        Handle<Function> fn = tmpl->GetFunction();
+        Handle<Value> wrap = External::Wrap(this);
+        Handle<Value> fn = context->make_function->Call(context->context->Global(), 1, &wrap);
         set_object(Handle<Object>::Cast(fn));
     }
 
     static Handle<Value> v8invoke(const Arguments& args) {
-        PerlFunctionData* data = static_cast<PerlFunctionData*>(External::Unwrap(args.Data()));
+        PerlFunctionData* data = static_cast<PerlFunctionData*>(External::Unwrap(args[0]));
         return data->invoke(args);
     }
 };
@@ -279,6 +279,29 @@ V8Context::V8Context(int time_limit, const char* flags, bool enable_blessing_, c
 { 
     V8::SetFlagsFromString(flags, strlen(flags));
     context = Context::New();
+
+    Context::Scope context_scope(context);
+    HandleScope handle_scope;
+
+    Local<FunctionTemplate> tmpl = FunctionTemplate::New(PerlFunctionData::v8invoke);
+    context->Global()->Set(
+        String::New("__perlFunctionWrapper"),
+        tmpl->GetFunction()
+    );
+
+    Handle<Script> script = Script::Compile(
+        String::New(
+            "(function(wrap) {"
+            "    return function() {"
+            "        var args = Array.prototype.slice.call(arguments);"
+            "        args.unshift(wrap);"
+            "        return __perlFunctionWrapper.apply(this, args)"
+            "    };"
+            "})"
+        )
+    );
+    make_function = Persistent<Function>::New(Handle<Function>::Cast(script->Run()));
+
     number++;    
 }
 

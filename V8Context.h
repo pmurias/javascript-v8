@@ -87,6 +87,8 @@ class V8Context {
         void register_perl_object(PerlObjectData* data);
         void remove_perl_object(PerlObjectData* data);
 
+        Persistent<Function> make_function;
+
     private:
         Handle<Value>    sv2v8(SV*, HandleMap& seen);
         SV*              v82sv(Handle<Value>, SvMap& seen);
