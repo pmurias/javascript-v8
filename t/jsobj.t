@@ -126,7 +126,7 @@ like $@, qr{SomeError.*at counter\.js:\d+}, 'js method error propagates to perl'
 }
 
 {
-    my $context = JavaScript::V8::Context->new( enable_blessing => 1 );
+    my $context = JavaScript::V8::Context->new( enable_blessing => 1, enable_wantarray => 1 );
     
     $context->eval($COUNTER_SRC);
 

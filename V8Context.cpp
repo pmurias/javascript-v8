@@ -284,10 +284,17 @@ size_t PerlMethodData::size() {
 
 // V8Context class starts here
 
-V8Context::V8Context(int time_limit, const char* flags, bool enable_blessing_, const char* bless_prefix_)
+V8Context::V8Context(
+    int time_limit,
+    const char* flags,
+    bool enable_wantarray_,
+    bool enable_blessing_,
+    const char* bless_prefix_
+)
     : time_limit_(time_limit),
       bless_prefix(bless_prefix_),
-      enable_blessing(enable_blessing_)
+      enable_blessing(enable_blessing_),
+      enable_wantarray(enable_wantarray_)
 { 
     V8::SetFlagsFromString(flags, strlen(flags));
     context = Context::New();
@@ -732,7 +739,7 @@ my_gv_setsv(pTHX_ GV* const gv, SV* const sv){
             die = true; \
         } \
         else { \
-            if (GIMME_V == G_ARRAY && result->IsArray()) { \
+            if (self->enable_wantarray && GIMME_V == G_ARRAY && result->IsArray()) { \
                 Handle<Array> array = Handle<Array>::Cast(result); \
                 count = array->Length(); \
                 EXTEND(SP, count - items); \

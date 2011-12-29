@@ -4,7 +4,7 @@ use JavaScript::V8;
 use strict;
 use warnings;
 
-my $context = JavaScript::V8::Context->new();
+my $context = JavaScript::V8::Context->new( enable_wantarray => 1 );
 
 {
     my %expected = ( foo => 'bar' );
@@ -49,6 +49,7 @@ my $context = JavaScript::V8::Context->new();
 };
 
 is_deeply [ $context->eval('(function() { return [1,2,3]; })')->() ], [1,2,3], 'array returns as a list in list context';
+#is_deeply [ $context->eval('[1,2,3,4,5]') ], [1,2,3,4,5], 'eval in list context'; 
 
 for(1 .. 1000) {
   my $code = $context->eval('function x() { return 2+2 }; x');

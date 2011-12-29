@@ -88,7 +88,13 @@ typedef map<int, ObjectData*> ObjectDataMap;
 
 class V8Context {
     public:
-        V8Context(int time_limit = 0, const char* flags = NULL, bool enable_blessing = false, const char* bless_prefix = NULL);
+        V8Context(
+            int time_limit = 0,
+            const char* flags = NULL,
+            bool enable_wantarray = false,
+            bool enable_blessing = false,
+            const char* bless_prefix = NULL
+        );
         ~V8Context();
 
         void bind(const char*, SV*);
@@ -106,6 +112,8 @@ class V8Context {
         void remove_object(ObjectData* data);
 
         Persistent<Function> make_function;
+
+        bool enable_wantarray;
 
     private:
         Handle<Value>    sv2v8(SV*, HandleMap& seen);

@@ -10,8 +10,9 @@ sub new {
         ? delete $args{enable_blessing} 
         : (exists $args{bless_prefix} ? 1 : 0);
     my $bless_prefix = delete $args{bless_prefix} || '';
+    my $enable_wantarray = delete $args{enable_wantarray} || 0;
 
-    $class->_new($time_limit, $flags, $enable_blessing, $bless_prefix);
+    $class->_new($time_limit, $flags, $enable_wantarray, $enable_blessing, $bless_prefix);
 }
 
 sub bind_function {
@@ -41,7 +42,7 @@ JavaScript::V8::Context - An object in which we can execute JavaScript
 
 =over
 
-=item new ( [time_limit => seconds], [enable_blessing => bool], [bless_prefix => string] )
+=item new ( [time_limit => seconds], [enable_wantarray => bool], [enable_blessing => bool], [bless_prefix => string] )
 
 Create a new JavaScript::V8::Context object. The optional C<time_limit>
 parameter will force an exception after the script has run for a number of
@@ -54,6 +55,11 @@ These refernces are blessed into a Perl package with a name C<bless_prefix> +
 C<__perlPackage>. This package is automagically created and filled with methods
 from JavaScript object prototype. C<bless_prefix> is optional and can be left
 out if you completely trust your JavaScript code.
+
+C<enable_wantarray> option makes JavaScript functions and methods context-sensitive.
+If a function returns an array and is called from Perl in list context, then its result 
+is converted to Perl as a list. In scalar context or with C<enable_wantarray> off
+result is an arrayref.
 
 =item bind ( name => $scalar )
 
