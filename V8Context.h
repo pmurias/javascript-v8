@@ -19,51 +19,72 @@ using namespace v8;
 using namespace std;
 
 typedef map<string, Persistent<Object> > ObjectMap;
-typedef map<int, long> SvMap;
+
+class SimpleObjectData {
+public:
+    Handle<Object> object;
+    long ptr;
+
+    SimpleObjectData(Handle<Object> object_, long ptr_)
+        : ptr(ptr_)
+        , object(object_)
+    { }
+};
+
+class SvMap {
+    typedef multimap<int, SimpleObjectData*> sv_map;
+    sv_map objects;
+
+public:
+    SvMap () { }
+
+    ~SvMap() {
+        for (sv_map::iterator it = objects.begin(); it != objects.end(); it++)
+            delete it->second;
+    }
+
+    void add(Handle<Object> object, long ptr);
+    SV* find(Handle<Object> object);
+};
+
 typedef map<int, Handle<Value> > HandleMap;
 
 class V8Context;
 
-class V8ObjectData {
-protected:
-    V8ObjectData() {}
-
+class ObjectData {
 public:
-    V8ObjectData(Handle<Object> object_, SV* sv_, V8Context* context_, int hash_);
-    ~V8ObjectData();
-
-    int hash;
-    SV *sv;
-    V8Context *context;
+    V8Context* context;
+    SV* sv;
     Persistent<Object> object;
+    long ptr;
+
+    ObjectData() {};
+    ObjectData(V8Context* context_, Handle<Object> object_, SV* sv);
+    virtual ~ObjectData();
+};
+
+class V8ObjectData : public ObjectData {
+public:
+    V8ObjectData(V8Context* context_, Handle<Object> object_, SV* sv_);
 
     static MGVTBL vtable;
     static int svt_free(pTHX_ SV*, MAGIC*);
 };
 
-class PerlObjectData {
-public:
-    SV *sv;
-    Persistent<Object> object;
-    V8Context* context;
-    int ptr;
+class PerlObjectData : public ObjectData {
     size_t bytes;
 
-    void init (SV* sv_, V8Context* context_);
-
-    PerlObjectData(SV* sv_, V8Context* context_);
-    PerlObjectData(SV* sv_, Handle<Object> object_, V8Context* context_);
-
-    void set_sv(SV* sv_);
-    void set_object(Handle<Object> object_);
+public:
+    PerlObjectData(V8Context* context_, Handle<Object> object_, SV* sv_);
+    virtual ~PerlObjectData();
 
     virtual size_t size();
     void add_size(size_t bytes_);
 
-    virtual ~PerlObjectData();
-
     static void destroy(Persistent<Value> object, void *data);
 };
+
+typedef map<int, ObjectData*> ObjectDataMap;
 
 class V8Context {
     public:
@@ -81,11 +102,8 @@ class V8Context {
 
         Persistent<Context> context;
 
-        void register_v8_object(V8ObjectData* data);
-        void remove_v8_object(V8ObjectData* data);
-
-        void register_perl_object(PerlObjectData* data);
-        void remove_perl_object(PerlObjectData* data);
+        void register_object(ObjectData* data);
+        void remove_object(ObjectData* data);
 
         Persistent<Function> make_function;
 
@@ -100,18 +118,20 @@ class V8Context {
         Handle<String>   sv2v8str(SV* sv);
         Handle<Object>   blessed2object(SV *sv);
 
-        SV* array2sv(Handle<Array>, SvMap& seen, int hash);
-        SV* object2sv(Handle<Object>, SvMap& seen, int hash);
-        SV* object2blessed(Handle<Object>, int hash);
-        SV* function2sv(Handle<Function>, int hash);
+        SV* array2sv(Handle<Array>, SvMap& seen);
+        SV* object2sv(Handle<Object>, SvMap& seen);
+        SV* object2blessed(Handle<Object>);
+        SV* function2sv(Handle<Function>);
+
+        Persistent<String> string_wrap;
 
         void fill_prototype(Handle<Object> prototype, HV* stash);
         Handle<Object> get_prototype(SV* sv);
 
         ObjectMap prototypes;
-        vector<V8ObjectData*> objects;
-        SvMap seen_v8;
-        HandleMap seen_perl;
+
+        ObjectDataMap seen_perl;
+        SV* seen_v8(Handle<Object> object);
 
         int time_limit_;
         string bless_prefix;

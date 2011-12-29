@@ -134,4 +134,10 @@ $context->set_flags_from_string("--expose-gc");
     is $context->eval('(function (c) { return c.zzz; })')->($c), "value to persist", 'perl objects are converted once';
 }
 
+{
+    my $c = sub { };
+    $context->eval('(function (c) { c.zzz = "value to persist"; })')->($c);
+    is $context->eval('(function (c) { return c.zzz; })')->($c), "value to persist", 'perl functions are converted once';
+}
+
 done_testing;
