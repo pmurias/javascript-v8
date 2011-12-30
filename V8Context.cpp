@@ -1,15 +1,8 @@
-#include <v8.h>
 #include "V8Context.h"
-#include "EXTERN.h"
-#include "perl.h"
-#include "XSUB.h"
-#include "ppport.h"
-#undef New
+
 #include <pthread.h>
 #include <time.h>
 
-#undef do_open
-#undef do_close
 
 #include <sstream>
 

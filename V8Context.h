@@ -1,19 +1,24 @@
 #ifndef _V8Context_h_
 #define _V8Context_h_
 
-#include <EXTERN.h>
-#include <perl.h>
-#include <XSUB.h>
-#undef New
-#undef Null
-
 #include <vector>
 #include <map>
 #include <string>
 
 #include <v8.h>
 
-#include <string>
+#ifdef __cplusplus
+extern "C" {
+#include <EXTERN.h>
+#include <perl.h>
+#include <XSUB.h>
+#include "ppport.h"
+}
+#endif
+#undef New
+#undef Null
+#undef do_open
+#undef do_close
 
 using namespace v8;
 using namespace std;
