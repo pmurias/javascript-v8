@@ -1,11 +1,11 @@
 #ifndef _V8Context_h_
 #define _V8Context_h_
 
+#include <v8.h>
+
 #include <vector>
 #include <map>
 #include <string>
-
-#include <v8.h>
 
 #ifdef __cplusplus
 extern "C" {
