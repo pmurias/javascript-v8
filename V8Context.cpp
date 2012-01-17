@@ -6,6 +6,11 @@
 
 #include <sstream>
 
+#ifndef INT32_MAX
+#define INT32_MAX 0x7fffffff
+#define INT32_MIN (-0x7fffffff-1)
+#endif
+
 #define L(...) fprintf(stderr, ##__VA_ARGS__)
 
 using namespace v8;
