@@ -439,7 +439,7 @@ V8Context::sv2v8(SV *sv, HandleMap& seen) {
     }
     if (SvIOK(sv)) {
         IV v = SvIV(sv);
-        return (v >> 32) > 0 ? Number::New(v) : (Handle<Number>)Integer::New(v);
+        return (v <= INT32_MAX && v >= INT32_MIN) ? (Handle<Number>)Integer::New(v) : Number::New(SvNV(sv));
     }
     if (SvNOK(sv))
         return Number::New(SvNV(sv));

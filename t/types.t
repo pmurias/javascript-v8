@@ -10,6 +10,10 @@ use warnings;
 my $context = JavaScript::V8::Context->new;
 
 is $context->eval('(function(v) { return v })')->(1000000000000), 1000000000000, 'big numbers are ok';
+is $context->eval('(function(v) { return v })')->(2174652970), 2174652970, '32-bit numbers  are ok';
+is $context->eval('(function(v) { return v })')->(-2174652970), -2174652970, '32-bit numbers  are ok';
+is $context->eval('(function(v) { return v })')->(-2170), -2170, '32-bit numbers  are ok';
+is $context->eval('(function(v) { return v })')->(2170), 2170, '32-bit numbers  are ok';
 is $context->eval('(function(v) { return v })')->(2.34234), 2.34234, 'real numbers are ok';
 
 is $context->eval('(function(v) { return v + 2; })')->(2), 4;
