@@ -3,7 +3,6 @@
 #include <pthread.h>
 #include <time.h>
 
-
 #include <sstream>
 
 #ifndef INT32_MAX
@@ -293,7 +292,7 @@ V8Context::V8Context(
       bless_prefix(bless_prefix_),
       enable_blessing(enable_blessing_),
       enable_wantarray(enable_wantarray_)
-{ 
+{
     V8::SetFlagsFromString(flags, strlen(flags));
     context = Context::New();
 
@@ -321,7 +320,7 @@ V8Context::V8Context(
 
     string_wrap = Persistent<String>::New(String::New("wrap"));
 
-    number++;    
+    number++;
 }
 
 void V8Context::register_object(ObjectData* data) {
@@ -450,7 +449,7 @@ V8Context::sv2v8(SV *sv, HandleMap& seen) {
         return Number::New(SvNV(sv));
     if (!SvOK(sv))
         return Undefined();
- 
+
     warn("Unknown sv type in sv2v8");
     return Undefined();
 }
@@ -536,7 +535,7 @@ V8Context::v82sv(Handle<Value> value) {
     return v82sv(value, seen);
 }
 
-void 
+void
 V8Context::fill_prototype(Handle<Object> prototype, HV* stash) {
     HE *he;
     while (he = hv_iternext(stash)) {
@@ -788,8 +787,8 @@ V8Context::object2blessed(Handle<Object> obj) {
 
     snprintf(
         package,
-        128, 
-        "%s%s::N%d", 
+        128,
+        "%s%s::N%d",
         bless_prefix.c_str(),
         *String::AsciiValue(obj->Get(String::New("__perlPackage"))->ToString()),
         number
@@ -835,9 +834,9 @@ V8Context::idle_notification() {
     HeapStatistics hs;
     V8::GetHeapStatistics(&hs);
     L(
-        "%d %d %d\n", 
-        hs.total_heap_size(), 
-        hs.total_heap_size_executable(), 
+        "%d %d %d\n",
+        hs.total_heap_size(),
+        hs.total_heap_size_executable(),
         hs.used_heap_size()
     );
     */

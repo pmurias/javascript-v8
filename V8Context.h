@@ -152,6 +152,4 @@ class V8Context {
         static int number;
 };
 
-
 #endif
-
