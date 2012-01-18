@@ -251,7 +251,7 @@ void PerlObjectData::add_size(size_t bytes_) {
 Handle<Value>
 PerlFunctionData::invoke(const Arguments& args) {
     SETUP_PERL_CALL();
-    int count = call_sv(rv, G_SCALAR);
+    int count = call_sv(rv, G_SCALAR | G_EVAL);
     CONVERT_PERL_RESULT();
 }
 

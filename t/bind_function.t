@@ -45,4 +45,6 @@ my $zzz = 1;
 undef $zzz;
 is $context->eval('(function(x) { return x; })')->($zzz), undef, 'undef roundtrip 2';
 
+is $context->eval('(function(f) { try { f() } catch(e) { return "ok"; } })')->(sub { die 'err' }), 'ok', 'caught perl error in js';
+
 done_testing;
