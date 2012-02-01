@@ -627,7 +627,9 @@ V8Context::av2array(AV *av, HandleMap& seen, long ptr) {
     Handle<Array> array = Array::New(len);
     seen[ptr] = array;
     for (i = 0; i < len; i++) {
-        array->Set(Integer::New(i), sv2v8(*av_fetch(av, i, 0), seen));
+        if (SV** sv = av_fetch(av, i, 0)) {
+            array->Set(Integer::New(i), sv2v8(*sv, seen));
+        }
     }
     return array;
 }
