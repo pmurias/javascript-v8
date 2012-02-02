@@ -209,6 +209,16 @@ ObjectData* sv_object_data(SV* sv) {
     return NULL;
 }
 
+class V8FunctionData : public V8ObjectData {
+public:
+    V8FunctionData(V8Context* context_, Handle<Object> object_, SV* sv_)
+        : V8ObjectData(context_, object_, sv_)
+        , returns_list(object_->Has(String::New("__perlReturnsList")))
+    { }
+
+    bool returns_list;
+};
+
 class PerlFunctionData : public PerlObjectData {
 private:
     SV *rv;
@@ -284,14 +294,12 @@ size_t PerlMethodData::size() {
 V8Context::V8Context(
     int time_limit,
     const char* flags,
-    bool enable_wantarray_,
     bool enable_blessing_,
     const char* bless_prefix_
 )
     : time_limit_(time_limit),
       bless_prefix(bless_prefix_),
-      enable_blessing(enable_blessing_),
-      enable_wantarray(enable_wantarray_)
+      enable_blessing(enable_blessing_)
 {
     V8::SetFlagsFromString(flags, strlen(flags));
     context = Context::New();
@@ -721,7 +729,7 @@ my_gv_setsv(pTHX_ GV* const gv, SV* const sv){
          * middle of the block, v8 will segfault at program exit. */ \
         TryCatch        try_catch; \
         HandleScope     scope; \
-        ObjectData* data = sv_object_data((SV*)cv); \
+        V8FunctionData* data = (V8FunctionData*)sv_object_data((SV*)cv); \
         if (data->context) { \
         V8Context      *self = data->context; \
         Handle<Context> ctx  = self->context; \
@@ -738,12 +746,17 @@ my_gv_setsv(pTHX_ GV* const gv, SV* const sv){
             die = true; \
         } \
         else { \
-            if (self->enable_wantarray && GIMME_V == G_ARRAY && result->IsArray()) { \
+            if (data->returns_list && GIMME_V == G_ARRAY && result->IsArray()) { \
                 Handle<Array> array = Handle<Array>::Cast(result); \
-                count = array->Length(); \
-                EXTEND(SP, count - items); \
-                for (int i = 0; i < count; i++) { \
-                    ST(i) = sv_2mortal(self->v82sv(array->Get(Integer::New(i)))); \
+                if (GIMME_V == G_ARRAY) { \
+                    count = array->Length(); \
+                    EXTEND(SP, count - items); \
+                    for (int i = 0; i < count; i++) { \
+                        ST(i) = sv_2mortal(self->v82sv(array->Get(Integer::New(i)))); \
+                    } \
+                } \
+                else { \
+                    ST(0) = sv_2mortal(newSViv(array->Length())); \
                 } \
             } \
             else { \
@@ -779,7 +792,7 @@ XS(v8method) {
 SV*
 V8Context::function2sv(Handle<Function> fn) {
     CV          *code = newXS(NULL, v8closure, __FILE__);
-    V8ObjectData *data = new V8ObjectData(this, fn->ToObject(), (SV*)code);
+    V8ObjectData *data = new V8FunctionData(this, fn->ToObject(), (SV*)code);
     return newRV_noinc((SV*)code);
 }
 
@@ -814,7 +827,7 @@ V8Context::object2blessed(Handle<Object> obj) {
             Local<Function> fn = Local<Function>::Cast(property);
 
             CV *code = newXS(NULL, v8method, __FILE__);
-            V8ObjectData *data = new V8ObjectData(this, fn, (SV*)code);
+            V8ObjectData *data = new V8FunctionData(this, fn, (SV*)code);
 
             GV* gv = (GV*)*hv_fetch(stash, *String::AsciiValue(name), name->Length(), TRUE);
             gv_init(gv, stash, *String::AsciiValue(name), name->Length(), GV_ADDMULTI); /* vivify */

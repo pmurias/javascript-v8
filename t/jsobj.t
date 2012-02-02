@@ -52,6 +52,8 @@ Counter.prototype.previousValues = function() {
     return this.prev;
 }
 
+Counter.prototype.previousValues.__perlReturnsList = true;
+
 Counter.prototype.__perlPackage = "Counter";
 
 new Counter;

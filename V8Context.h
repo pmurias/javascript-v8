@@ -96,7 +96,6 @@ class V8Context {
         V8Context(
             int time_limit = 0,
             const char* flags = NULL,
-            bool enable_wantarray = false,
             bool enable_blessing = false,
             const char* bless_prefix = NULL
         );

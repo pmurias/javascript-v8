@@ -48,7 +48,7 @@ my $context = JavaScript::V8::Context->new( enable_wantarray => 1 );
     is_deeply($context->eval('x={"\u00a3":{bar:{boo:"far\u00a3"}}}'), \%expected);die $@ if $@;
 };
 
-is_deeply [ $context->eval('(function() { return [1,2,3]; })')->() ], [1,2,3], 'array returns as a list in list context';
+is_deeply [ $context->eval('var f = (function() { return [1,2,3]; }); f.__perlReturnsList = true; f')->() ], [1,2,3], 'array returns as a list in list context';
 #is_deeply [ $context->eval('[1,2,3,4,5]') ], [1,2,3,4,5], 'eval in list context'; 
 
 for(1 .. 1000) {
