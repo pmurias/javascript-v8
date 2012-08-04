@@ -68,6 +68,11 @@ completely trust the JavaScript code you're running.
 Specifies a package name prefix to use for blessed JavaScript objects. Has
 no effect unless C<enable_blessing> is set.
 
+=item flags
+
+Specify a string of flags to be passed to V8. See
+C<set_flags_from_string()> for more details.
+
 =back
 
 =item bind ( name => $scalar )
@@ -184,6 +189,24 @@ created by eval(), so JavaScript exceptions will propagate to Perl code.
 
 JavaScript function object having a C<__perlReturnsList> property set that
 returns an array will return a list to Perl when called in list context.
+
+=item set_flags_from_string ( $flags )
+
+Set or unset various flags supported by V8 (see
+L<http://code.google.com/p/v8/source/browse/trunk/src/flag-definitions.h>
+or F<src/flag-definitions.h> in the V8 source for details of all available
+flags).
+
+For example, the C<builtins_in_stack_traces> flag controls showing built-in
+functions in stack traces. To set this, call:
+
+  $context->set_flags_from_string("--builtins-in-stack-traces");
+
+Note underscores are replaced with hyphens.
+
+Flags are commonly used for debugging or changing the behaviour of V8 in
+some way. Some flags can only be set whenever a context is created - set
+these with the flags parameter to C<new()>.
 
 =back
 
