@@ -77,7 +77,7 @@ C<set_flags_from_string()> for more details.
 
 =item bind ( name => $scalar )
 
-Converts the given scalar value (array ref, code ref, or hash ref) to a v8
+Converts the given scalar value (array ref, code ref, or hash ref) to a V8
 value and binds it in this execution context.
 
 Examples:
