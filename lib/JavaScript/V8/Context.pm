@@ -163,7 +163,7 @@ version (the binding may become more complete).
 
 DEPRECATED. This is just an alias for bind.
 
-=item eval ( $source )
+=item eval ( $source[, $origin] )
 
 Evaluates the JavaScript code given in I<$source> and
 returns the result from the last statement.
@@ -183,6 +183,9 @@ Perl type:
 
 If there is a compilation error (such as a syntax error) or an uncaught
 exception is thrown in JavaScript, this method returns undef and $@ is set.
+If an optional origin for C<$source> has been provided, this will be
+reported as the origin of the error in $@. This is useful for debugging
+when eval-ing code from multiple different files or locations.
 
 A function reference returned from JavaScript is not wrapped in the context
 created by eval(), so JavaScript exceptions will propagate to Perl code.
