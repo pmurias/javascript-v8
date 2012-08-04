@@ -41,19 +41,34 @@ JavaScript::V8::Context - An object in which we can execute JavaScript
 
 =over
 
-=item new ( [time_limit => seconds], [enable_blessing => bool], [bless_prefix => string] )
+=item new ( %parameters )
 
-Create a new JavaScript::V8::Context object. The optional C<time_limit>
-parameter will force an exception after the script has run for a number of
-seconds; this limit will be enforced even if V8 calls back to Perl or blocks on
-IO.
+Create a new JavaScript::V8::Context object.
 
-If C<enable_blessing> is defined, JavaScript objects that have the
-C<__perlPackage> prorerty are converted to Perl blessed scalar references.
-These refernces are blessed into a Perl package with a name C<bless_prefix> +
-C<__perlPackage>. This package is automagically created and filled with methods
-from JavaScript object prototype. C<bless_prefix> is optional and can be left
-out if you completely trust your JavaScript code.
+Several optional parameters are accepted:
+
+=over
+
+=item time_limit
+
+Force an exception after the script has run for a number of seconds; this
+limit will be enforced even if V8 calls back to Perl or blocks on IO.
+
+=item enable_blessing
+
+If enabled, JavaScript objects that have the C<__perlPackage> property are
+converted to Perl blessed scalar references. These references are blessed
+into a Perl package with a name C<bless_prefix> + C<__perlPackage>. This
+package is automagically created and filled with methods from JavaScript
+object prototype. C<bless_prefix> is optional and can be left out if you
+completely trust the JavaScript code you're running.
+
+=item bless_prefix
+
+Specifies a package name prefix to use for blessed JavaScript objects. Has
+no effect unless C<enable_blessing> is set.
+
+=back
 
 =item bind ( name => $scalar )
 
