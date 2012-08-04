@@ -211,6 +211,14 @@ Flags are commonly used for debugging or changing the behaviour of V8 in
 some way. Some flags can only be set whenever a context is created - set
 these with the flags parameter to C<new()>.
 
+=item idle_notification( )
+
+Used as a hint to tell V8 that your application is idle, so now might be a
+suitable time for garbage collection. Returns 1 if there is no further work
+V8 can currently do.
+
+Most users of C<JavaScript::V8> will not need this.
+
 =back
 
 =cut
