@@ -205,7 +205,9 @@ functions in stack traces. To set this, call:
 
   $context->set_flags_from_string("--builtins-in-stack-traces");
 
-Note underscores are replaced with hyphens.
+Note underscores are replaced with hyphens. Note that flags which are
+enabled by default are disabled by prefixing the name with "no" - for
+example, the "foo" flag could be disabled with C<--nofoo>.
 
 Flags are commonly used for debugging or changing the behaviour of V8 in
 some way. Some flags can only be set whenever a context is created - set
