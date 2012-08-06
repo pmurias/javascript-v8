@@ -24,8 +24,12 @@ if($rl->isa("Term::ReadLine::Gnu")) {
       if($complete_prefix =~ s/\.([^.]+)$/./) {
         $prefix = $complete_prefix;
       }
-      @list = sort map $prefix . $_,
-        grep /^\Q$object_prefix\E/, keys %{$js->eval($object)};
+      my $h = $js->eval($object);
+      if(ref $h eq 'HASH') {
+        @list = sort map $prefix . $_, grep /^\Q$object_prefix\E/, keys %$h;
+      } else {
+        @list = ();
+      }
     }
 
     $list[$count];
