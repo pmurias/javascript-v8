@@ -41,4 +41,15 @@ if(ExtUtils::MakeMaker->can("VERSION") && ExtUtils::MakeMaker->VERSION(6.46)) {
   };
 }
 
+if(gcc_version($CC) >= 4.5) {
+  $mm{CCFLAGS} = '-fpermissive';
+}
+
 WriteMakefile(%mm);
+
+sub gcc_version {
+  my($cc) = @_;
+  my $gcc_out = qx{$cc -v 2>&1};
+  # Just the first two digits
+  $gcc_out =~ /gcc version (\d+\.\d+)/ ? $1 : 0;
+}
