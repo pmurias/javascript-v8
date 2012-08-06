@@ -20,4 +20,8 @@ is($context->eval("1.34"), 1.34, 'numbers');
 ok(!defined $context->eval('undefined'), 'undefined');
 ok(!defined $context->eval('null'), 'null');
 
+$context->name_global('window');
+$context->eval(q{x = 42});
+is $context->eval(q{window.x}), 42, "Window is the same as top level";
+
 done_testing;

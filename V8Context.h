@@ -106,6 +106,7 @@ class V8Context {
         bool idle_notification();
         int adjust_amount_of_external_allocated_memory(int bytes);
         void set_flags_from_string(char *str);
+        void name_global(const char *str);
 
         Handle<Value> sv2v8(SV*);
         SV*           v82sv(Handle<Value>);

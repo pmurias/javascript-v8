@@ -11,4 +11,5 @@
   bool idle_notification();
   int adjust_amount_of_external_allocated_memory(int change_in_bytes);
   void set_flags_from_string(char *str);
+  void name_global(const char *str);
 };

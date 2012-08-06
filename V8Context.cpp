@@ -364,6 +364,13 @@ V8Context::bind(const char *name, SV *thing) {
     context->Global()->Set(String::New(name), sv2v8(thing));
 }
 
+void V8Context::name_global(const char *name) {
+    HandleScope scope;
+    Context::Scope context_scope(context);
+
+    context->Global()->Set(String::New(name), context->Global());
+}
+
 // I fucking hate pthreads, this lacks error handling, but hopefully works.
 class thread_canceller {
 public:

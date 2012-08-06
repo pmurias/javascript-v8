@@ -221,6 +221,13 @@ V8 can currently do.
 
 Most users of C<JavaScript::V8> will not need this.
 
+=item name_global( $name )
+
+Give the global object a name that is accessible from JavaScript.  This is
+useful to e.g. name "window" as the top level object, as is usually the case in
+web browsers. (This is somewhat limited, at some point a fuller and more
+correct API might be added).
+
 =back
 
 =cut
