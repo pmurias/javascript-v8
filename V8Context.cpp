@@ -425,6 +425,8 @@ V8Context::eval(SV* source, SV* origin) {
     TryCatch try_catch;
     Context::Scope context_scope(context);
 
+    // V8 expects everything in UTF-8, ensure SVs are upgraded.
+    sv_utf8_upgrade(source);
     Handle<Script> script = Script::Compile(
         sv2v8str(source),
         origin ? sv2v8str(origin) : String::New("eval")
