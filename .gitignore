@@ -1,6 +1,7 @@
 MANIFEST
 META.yml
 MYMETA.yml
+MYMETA.json
 MANIFEST.*bak
 Makefile
 Makefile.old
