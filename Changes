@@ -1,5 +1,12 @@
 Revision history for Perl extension JavaScript::V8
 
+0.07  Fri 28 Dec 11:52:52 GMT 2012
+    - Add support for naming the top level object
+    - Add a mini REPL as an example
+    - Add support for setting V8 flags (Nick Johnston)
+    - Fixes for Perl 5.8 (Nick Johnston)
+    - Many improvements for object conversion (Igor Zaytsev)
+
 0.06  Tue 29 Mar 2011 21:26:00 BST
     - Support for returning functions from JavaScript (Paul Driver)
     - Included Devel::CheckLib upgraded (Paul Driver)
