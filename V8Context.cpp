@@ -24,10 +24,11 @@ void set_perl_error(const TryCatch& try_catch) {
     snprintf(
         message,
         1024,
-        "%s at %s:%d\n",
+        "%s at %s:%d:%d\n",
         *(String::Utf8Value(try_catch.Exception())),
         !msg.IsEmpty() ? *(String::AsciiValue(msg->GetScriptResourceName())) : "eval",
-        !msg.IsEmpty() ? msg->GetLineNumber() : 0
+        !msg.IsEmpty() ? msg->GetLineNumber() : 0,
+        !msg.IsEmpty() ? msg->GetStartColumn(): 0
     );
 
     sv_setpv(ERRSV, message);
