@@ -364,11 +364,21 @@ V8Context::bind(const char *name, SV *thing) {
     context->Global()->Set(String::New(name), sv2v8(thing));
 }
 
+void
+V8Context::bind_ro(const char *name, SV *thing) {
+    HandleScope scope;
+    Context::Scope context_scope(context);
+
+    context->Global()->ForceSet(String::New(name), sv2v8(thing),
+        v8::PropertyAttribute(v8::ReadOnly | v8::DontDelete));
+}
+
 void V8Context::name_global(const char *name) {
     HandleScope scope;
     Context::Scope context_scope(context);
 
-    context->Global()->Set(String::New(name), context->Global());
+    context->Global()->ForceSet(String::New(name), context->Global(),
+        v8::PropertyAttribute(v8::ReadOnly | v8::DontDelete));
 }
 
 // I fucking hate pthreads, this lacks error handling, but hopefully works.

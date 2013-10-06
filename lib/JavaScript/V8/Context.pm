@@ -159,6 +159,11 @@ structure.
 The exact semantics of this interface are subject to change in a future
 version (the binding may become more complete).
 
+=item bind_ro ( $name => $scalar )
+
+Like C<bind()> but makes the item read-only on the global object (i.e. it is
+not recursive, if you need that use tie or other Perl mechanisms).
+
 =item bind_function ( $name => $subroutine_ref )
 
 DEPRECATED. This is just an alias for bind.

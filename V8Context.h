@@ -102,6 +102,7 @@ class V8Context {
         ~V8Context();
 
         void bind(const char*, SV*);
+        void bind_ro(const char*, SV*);
         SV* eval(SV* source, SV* origin = NULL);
         bool idle_notification();
         int adjust_amount_of_external_allocated_memory(int bytes);
