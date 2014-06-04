@@ -2,7 +2,7 @@ use warnings;
 use strict;
 
 use JavaScript::V8;
-use Test::More tests => 3;
+use Test::More tests => 1;
 
 my $c = JavaScript::V8::Context->new;
 $c->name_global('window');

@@ -455,6 +455,9 @@ V8Context::eval(SV* source, SV* origin) {
             return &PL_sv_undef;
         } else {
             sv_setsv(ERRSV,&PL_sv_undef);
+            if (GIMME_V == G_VOID) {
+                return &PL_sv_undef;
+            }
             return v82sv(val);
         }
     }
