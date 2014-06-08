@@ -422,6 +422,7 @@ private:
             V8::TerminateExecution();
         }
         pthread_mutex_unlock(&me->mutex_);
+        return NULL;
     }
 
     pthread_t id_;
