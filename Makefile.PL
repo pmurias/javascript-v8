@@ -37,7 +37,7 @@ my %mm = (
 if(ExtUtils::MakeMaker->can("VERSION") && ExtUtils::MakeMaker->VERSION(6.46)) {
   $mm{META_MERGE} = {
     resources        => {
-      repository     => 'http://github.com/dgl/javascript-v8',
+      repository     => 'http://github.com/pmurias/javascript-v8',
     }
   };
 }

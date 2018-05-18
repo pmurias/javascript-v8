@@ -114,7 +114,7 @@ types.
 
 =head1 REPOSITORY
 
-The source code lives at L<http://github.com/dgl/javascript-v8>.
+The source code lives at L<http://github.com/pmurias/javascript-v8>.
 
 =head1 AUTHORS
 
